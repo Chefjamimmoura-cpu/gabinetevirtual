@@ -1,0 +1,148 @@
+.viewerContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  overflow: auto;
+  background-color: #f1f5f9;
+  position: relative;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  margin-bottom: 24px;
+}
+
+.toolbar button {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  transition: all 0.2s;
+}
+
+.toolbar button:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.paperWrapper {
+  transform-origin: top center;
+  transition: transform 0.2s ease-out;
+  margin-bottom: 40px;
+}
+
+.a4Paper {
+  width: 794px; /* 210mm at 96dpi */
+  min-height: 1123px; /* 297mm at 96dpi */
+  background: white;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+  padding: 2cm 2.5cm 2.5cm 2.5cm; /* Top, Right, Bottom, Left margins */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 70%; /* Aproximadamente o tamanho da marca no A4 */
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.contentBody {
+  position: relative;
+  z-index: 1;
+  flex: 1; /* Pushes footer to the bottom if content is short */
+  font-family: 'Times New Roman', serif;
+  font-size: 14pt;
+  line-height: 1.5;
+  color: #000;
+  margin-bottom: 40px;
+}
+
+/* Base styles for inner content when it's raw HTML/Markdown */
+.contentBody h1, .contentBody h2, .contentBody h3 {
+  text-align: center;
+  font-weight: bold;
+  color: #000;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.contentBody p {
+  text-align: justify;
+  margin-bottom: 12px;
+}
+
+.contentBody table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.contentBody th, .contentBody td {
+  border: 1px solid #cbd5e1;
+  padding: 10px;
+  font-size: 12pt;
+}
+
+.contentBody th {
+  background-color: #f8fafc;
+  font-weight: bold;
+}
+
+.header {
+  text-align: center;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 16px;
+  margin-bottom: 32px;
+  line-height: 1; /* Alinhamento mais compacto */
+}
+
+.header img {
+  width: 70px;
+  height: 70px;
+  margin-bottom: 8px;
+  object-fit: contain;
+}
+
+.footer {
+  text-align: center;
+  font-family: 'Times New Roman', serif;
+  font-size: 9pt;
+  line-height: 1; /* Alinhamento mais compacto */
+  color: #666;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+  margin-top: auto; /* Push to bottom of A4 if flex */
+}
+
+.footer strong {
+  color: #555;
+  font-size: 10pt;
+}

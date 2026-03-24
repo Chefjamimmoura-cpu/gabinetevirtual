@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+*.local
+.env
+.env.local
+supabase
+deploy.sh
+README.md

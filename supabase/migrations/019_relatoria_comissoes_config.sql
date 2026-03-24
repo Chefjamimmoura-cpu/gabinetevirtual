@@ -1,0 +1,90 @@
+-- =============================================================================
+-- 019_relatoria_comissoes_config.sql
+-- White-label: comissões configuráveis por gabinete.
+-- Cada câmara municipal pode ter suas próprias comissões (permanentes, especiais,
+-- temporárias) sem precisar alterar o código da aplicação.
+--
+-- APLICAR: Cole este SQL no Supabase SQL Editor > Run.
+-- SEED CMBV: Após aplicar, execute o bloco UPDATE ao final para popular as
+--            7 comissões permanentes da Câmara Municipal de Boa Vista/RR.
+-- =============================================================================
+
+-- 1. Adiciona coluna de configuração de comissões ao gabinete
+ALTER TABLE public.gabinetes
+  ADD COLUMN IF NOT EXISTS comissoes_config JSONB DEFAULT '[]'::JSONB;
+
+-- Schema de cada item no array:
+-- {
+--   "sigla":       string,        -- ex: "CASP" (identificador curto)
+--   "nome":        string,        -- ex: "Comissão de Administração e Serviço Público"
+--   "area":        string,        -- área temática de competência da comissão
+--   "criterios":   string,        -- critérios jurídicos de análise (markdown, opcional)
+--   "keywords":    string[],      -- palavras-chave para busca nas tramitações do SAPL
+--   "sapl_unit_id": number|null   -- ID da unidade de tramitação no SAPL (para scan ao vivo)
+-- }
+
+-- =============================================================================
+-- SEED CMBV — Execute apenas para o gabinete da Câmara Municipal de Boa Vista/RR
+-- Substitua <GABINETE_ID_CMBV> pelo UUID real do gabinete.
+-- =============================================================================
+
+-- UPDATE public.gabinetes
+-- SET comissoes_config = '[
+--   {
+--     "sigla": "CLJRF",
+--     "nome": "Comissão de Legislação, Justiça e Redação Final",
+--     "area": "constitucionalidade, legalidade, técnica legislativa e redação final",
+--     "criterios": "- Constitucionalidade: analisar compatibilidade com a Constituição Federal e Lei Orgânica Municipal (LOM)\n- Legalidade: verificar se há vício de iniciativa, competência legislativa, processo legislativo regular\n- Técnica Legislativa: redação clara, linguagem jurídica precisa, coerência sistemática com ordenamento vigente\n- Redação Final: adequação da ementa ao conteúdo, terminologia correta, ausência de ambiguidades",
+--     "keywords": ["Legislação, Justiça e Redação", "CLJRF"],
+--     "sapl_unit_id": null
+--   },
+--   {
+--     "sigla": "COF",
+--     "nome": "Comissão de Orçamento e Finanças",
+--     "area": "finanças públicas, orçamento municipal, fiscalidade e controle de gastos",
+--     "criterios": "- Impacto Fiscal: verificar se há criação de despesa e se há indicação de fonte de custeio (Art. 17 LRF)\n- Compatibilidade Orçamentária: adequação à LOA, LDO e PPA vigentes\n- Lei de Responsabilidade Fiscal (LRF): conformidade com arts. 16, 17 e 21 da LC 101/2000\n- Equilíbrio Financeiro: não comprometimento das metas fiscais do município",
+--     "keywords": ["Orçamento e Finanças", "COF"],
+--     "sapl_unit_id": null
+--   },
+--   {
+--     "sigla": "COFFTC",
+--     "nome": "Comissão de Orçamento, Fiscalização Financeira, Tributação e Controle",
+--     "area": "orçamento, fiscalização financeira, tributação municipal e controle externo",
+--     "criterios": "- Impacto Fiscal: verificar se há criação de despesa e se há indicação de fonte de custeio (Art. 17 LRF)\n- Compatibilidade Orçamentária: adequação à LOA, LDO e PPA vigentes\n- Tributação: impactos sobre receita municipal, isenções, benefícios fiscais\n- Fiscalização: conformidade com as diretrizes do TCE-RR e CGM\n- Lei de Responsabilidade Fiscal: conformidade com arts. 16, 17 e 21 da LC 101/2000",
+--     "keywords": ["Fiscalização Financeira", "COFFTC"],
+--     "sapl_unit_id": null
+--   },
+--   {
+--     "sigla": "CASP",
+--     "nome": "Comissão de Administração e Serviço Público",
+--     "area": "administração pública, servidores municipais, cargos, funções, contratos e concessões",
+--     "criterios": "- Regime Jurídico: compatibilidade com o Estatuto dos Servidores Municipais e CLT (onde aplicável)\n- Criação/Extinção de Cargos: impacto na estrutura administrativa e necessidade demonstrada\n- Contratações e Concessões: adequação à Lei 8.666/93, Lei 14.133/21 e normas de concessão\n- Eficiência Administrativa: melhoria na prestação do serviço público ao cidadão\n- Competência Municipal: não invasão de competência estadual ou federal",
+--     "keywords": ["Administração e Serviço Público", "CASP"],
+--     "sapl_unit_id": null
+--   },
+--   {
+--     "sigla": "CECEJ",
+--     "nome": "Comissão de Educação, Cultura, Esporte e Juventude",
+--     "area": "educação municipal, cultura, esporte, juventude e políticas para crianças e adolescentes",
+--     "criterios": "- Educação: adequação à LDB (Lei 9.394/96), PNE, PME e política municipal de educação\n- Cultura: fomento à identidade cultural local, preservação do patrimônio cultural\n- Esporte e Lazer: promoção do esporte como direito social (Art. 217 CF/88)\n- Criança e Adolescente: conformidade com ECA (Lei 8.069/90)\n- Juventude: adequação ao Estatuto da Juventude (Lei 12.852/13)",
+--     "keywords": ["Educação, Cultura, Esporte", "CECEJ"],
+--     "sapl_unit_id": null
+--   },
+--   {
+--     "sigla": "CSSMA",
+--     "nome": "Comissão de Saúde, Saneamento e Meio Ambiente",
+--     "area": "saúde pública, saneamento básico, meio ambiente e proteção dos recursos naturais",
+--     "criterios": "- Saúde: conformidade com a Lei 8.080/90 (SUS), Lei 8.142/90 e política municipal de saúde\n- Saneamento Básico: adequação à Lei 14.026/20 (Marco do Saneamento) e PMSB\n- Meio Ambiente: compatibilidade com PNMA (Lei 6.938/81), SNUC, Código Florestal e normas municipais\n- Sustentabilidade: impactos ambientais e exigência de EIA/RIMA quando aplicável\n- Vigilância Sanitária: adequação às normas da ANVISA e vigilância municipal",
+--     "keywords": ["Saúde, Saneamento e Meio Ambiente", "CSSMA"],
+--     "sapl_unit_id": null
+--   },
+--   {
+--     "sigla": "CDHU",
+--     "nome": "Comissão de Defesa dos Direitos Humanos e Urbanismo",
+--     "area": "direitos humanos, políticas de inclusão social, urbanismo, habitação e mobilidade urbana",
+--     "criterios": "- Direitos Humanos: compatibilidade com a DUDH, CF/88 (arts. 1°, 3°, 5°) e tratados internacionais\n- Grupos Vulneráveis: proteção de idosos (Estatuto do Idoso), pessoas com deficiência (Lei 13.146/15), mulheres (Lei 11.340/06)\n- Urbanismo: adequação ao Plano Diretor de Boa Vista, Lei de Uso e Ocupação do Solo\n- Habitação: conformidade com o programa habitacional municipal e PLHIS\n- Mobilidade: acessibilidade e conformidade com o Código de Trânsito Brasileiro",
+--     "keywords": ["Direitos Humanos e Urbanismo", "CDHU"],
+--     "sapl_unit_id": null
+--   }
+-- ]'::JSONB
+-- WHERE id = '<GABINETE_ID_CMBV>';

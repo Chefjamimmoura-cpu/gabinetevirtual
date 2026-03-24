@@ -1,0 +1,32 @@
+.container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+  transition: margin-left var(--transition-normal);
+  background: #f3f4f6; /* Fundo cinza bem claro para o painel principal inteiro */
+}
+
+.content {
+  flex: 1;
+  padding: 32px;
+}
+
+:global(.sidebar-collapsed) .main {
+  margin-left: var(--sidebar-collapsed-width);
+}
+
+@media (max-width: 768px) {
+  .main {
+    margin-left: var(--sidebar-collapsed-width);
+  }
+
+  .content {
+    padding: 16px;
+  }
+}

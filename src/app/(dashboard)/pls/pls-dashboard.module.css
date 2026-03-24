@@ -1,0 +1,549 @@
+.dashboardContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  padding: 16px 24px 24px 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.iconWrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: rgba(16, 185, 129, 0.1); /* Emerald tint for PLs to differentiate from Pareceres */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: #4b5563;
+  margin: 4px 0 0 0;
+}
+
+/* Base Cards */
+.formCard, .infoCard, .outputCard {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 32px;
+  flex: 1;
+}
+
+.inputSection {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.outputSection {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Forms */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.formGroup label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.inputWithIcon {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+}
+
+.inputIcon {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  color: var(--gray-500);
+  pointer-events: none;
+}
+
+.input, .select, .textarea {
+  width: 100%;
+  background: #f9fafb;
+  border: 1px solid #d1d5db;
+  border-radius: var(--radius-md);
+  color: #111827;
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  transition: all var(--transition-fast);
+}
+
+.input, .select {
+  padding: 12px 14px 12px 40px;
+}
+
+.textarea {
+  padding: 12px 14px 12px 40px;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.select {
+  appearance: none;
+  cursor: pointer;
+}
+
+.input:focus, .select:focus, .textarea:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.generateButton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  background: var(--primary-600);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.2);
+}
+
+.generateButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+}
+
+.generateButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--gray-800);
+  color: var(--gray-400);
+  box-shadow: none;
+}
+
+.spinIcon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.infoCard h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 12px 0;
+}
+
+.infoCard p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+/* Output Area */
+.outputCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.emptyState, .generatingState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+  padding: 64px 24px;
+}
+
+.emptyState p {
+  color: #111827;
+  font-weight: 600;
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.emptyState span {
+  color: #6b7280;
+  font-size: 0.875rem;
+  max-width: 400px;
+}
+
+.generatingState p {
+  color: var(--primary-600);
+  font-weight: 600;
+  animation: pulseText 2s infinite;
+}
+
+.pulseDisk {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid rgba(16, 185, 129, 0.2);
+  border-top-color: #10b981;
+  animation: spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+}
+
+@keyframes pulseText {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Document Viewer */
+.documentViewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.documentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 24px;
+}
+
+.documentTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.documentSparkle {
+  color: #10b981;
+  font-size: 1.5rem;
+}
+
+.documentTitleGroup h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.25rem;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.exportButton {
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: var(--radius-sm);
+  color: #374151;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.exportButton:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.documentMeta {
+  margin-bottom: 32px;
+}
+
+.metaBadge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #065f46;
+  background: #dcfce7;
+  padding: 4px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.metaTitle {
+  margin: 0 0 8px 0;
+  font-size: 1.5rem;
+  color: #111827;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.metaContext {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  border-left: 3px solid #e5e7eb;
+  padding-left: 12px;
+}
+
+/* Law Document Structuring */
+.lawBodySection {
+  margin-bottom: 40px;
+}
+
+.lawSectionTitle {
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.lawTextGroup {
+  font-family: 'Merriweather', 'Times New Roman', serif; /* Serif font for strict legal reading */
+  color: #111827;
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  padding: 0 16px;
+}
+
+.lawArticle {
+  margin-bottom: 16px;
+  text-indent: 2em;
+}
+
+.lawJustification {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: #374151;
+}
+
+.constitutionalBadge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  margin-top: 32px;
+}
+
+.constitutionalIcon {
+  color: #10b981;
+  background: #dcfce7;
+  padding: 8px;
+  border-radius: 50%;
+}
+
+.constitutionalText {
+  display: flex;
+  flex-direction: column;
+}
+
+.constitutionalText strong {
+  color: #065f46;
+  font-size: 0.875rem;
+}
+
+.constitutionalText span {
+  color: #166534;
+  font-size: 0.8125rem;
+}
+
+/* Nova Proposição - ALIA */
+.novaContainer {
+  display: flex;
+  gap: 32px;
+  flex: 1;
+}
+
+.stepperPanel {
+  width: 320px;
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.stepItem {
+  display: flex;
+  gap: 16px;
+  position: relative;
+  padding-bottom: 32px;
+}
+.stepItem:last-child {
+  padding-bottom: 0;
+}
+.stepIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  z-index: 2;
+  transition: all 0.3s;
+}
+.stepLine {
+  position: absolute;
+  left: 15px;
+  top: 32px;
+  bottom: 0;
+  width: 2px;
+  background: #e2e8f0;
+  z-index: 1;
+}
+.stepContent {
+  flex: 1;
+}
+.stepTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.stepDesc {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+/* Status variants for Stepper */
+.stepPending .stepIcon { background: #f1f5f9; color: #94a3b8; border: 1px solid #cbd5e1; }
+.stepActive .stepIcon { background: #10b981; color: white; box-shadow: 0 0 0 4px #ecfdf5; }
+.stepDone .stepIcon { background: #10b981; color: white; }
+.stepPending .stepTitle { color: #94a3b8; }
+.stepActive .stepTitle { color: var(--text-primary); }
+.stepDone .stepTitle { color: #10b981; }
+
+.actionPanel {
+  flex: 1;
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.actionHeader {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.actionHeader h2 {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+.actionHeader p {
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+  margin: 8px 0 0 0;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.inputGroup label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.inputGroup textarea, .inputGroup input {
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+  background: #f8fafc;
+  transition: all 0.2s;
+}
+.inputGroup textarea:focus, .inputGroup input:focus {
+  outline: none;
+  border-color: #10b981;
+  background: white;
+  box-shadow: 0 0 0 3px #ecfdf5;
+}
+
+.runAliaButton {
+  margin-top: auto;
+  align-self: flex-end;
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 14px 28px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.runAliaButton:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+.runAliaButton:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+}

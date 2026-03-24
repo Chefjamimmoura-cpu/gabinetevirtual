@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/pls/sincronizar-sapl",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/admin/sync-sapl",
+      "schedule": "0 4 * * *"
+    }
+  ]
+}

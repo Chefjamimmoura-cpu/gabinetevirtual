@@ -1,0 +1,400 @@
+# Lógica de Geração Automática de Pareceres — Gabinete Virtual
+
+## Destinatário: Equipe de Desenvolvimento
+## Contexto: Gabinete da Vereadora Carol Dantas — CMBV — 14ª Legislatura
+
+---
+
+## 1. VISÃO GERAL
+
+O sistema deve gerar **pareceres de relator** para comissões permanentes da Câmara Municipal de Boa Vista (CMBV), com base no Regimento Interno (Resolução nº 93/1998 e alterações). O parecer é o documento formal que o relator emite para orientar o voto da comissão sobre um projeto de lei ou outra proposição legislativa.
+
+---
+
+## 2. REGRA DE OURO — O PARECER SÓ PODE TER DOIS RESULTADOS
+
+> **JAMAIS** gerar parecer com "voto em cautela", "diligência" ou qualquer outro resultado que não seja:
+
+| Resultado | Quando usar |
+|---|---|
+| **FAVORÁVEL** | A proposição é constitucional, legal e meritoriamente adequada |
+| **CONTRÁRIO** | A proposição tem vícios insanáveis, é inconstitucional ou inconveniente |
+
+Variações aceitas:
+- **Favorável com emendas** — quando aprova mas sugere alterações (Art. 73, §4º do RI)
+- **Favorável com ressalvas** — aprova mas registra observações
+
+**Base regimental:** Art. 73 do RI — *"As Comissões Permanentes deliberarão, por maioria de votos, sobre o pronunciamento do relator, o qual, se aprovado, prevalecerá como parecer."*
+
+---
+
+## 3. FLUXO DE DADOS — O QUE CONSULTAR ANTES DE GERAR
+
+### 3.1. Dados obrigatórios (via API do SAPL)
+
+```
+BASE_URL = "https://sapl.boavista.rr.leg.br/api/"
+```
+
+| Passo | Endpoint | O que buscar |
+|---|---|---|
+| 1. Matéria | `/materia/materialegislativa/?numero={N}&ano={ANO}&tipo={TIPO}&format=json` | Dados do PLL, ementa, autor, texto original (PDF) |
+| 2. Autoria | `/materia/autoria/?materia={ID}&format=json` | Confirmar autor(es) |
+| 3. Tramitação | `/materia/tramitacao/?materia={ID}&format=json` | Histórico completo de tramitação |
+| 4. Documentos | `/materia/documentoacessorio/?materia={ID}&format=json` | Pareceres da PROGE, relatores anteriores, atas |
+| 5. Texto Original | campo `texto_original` da matéria | PDF do projeto de lei |
+
+### 3.2. IDs de tipos de matéria
+
+| ID | Sigla | Tipo |
+|---|---|---|
+| 1 | PLL | Projeto de Lei do Legislativo |
+| 9 | PLE | Projeto de Lei do Executivo |
+| 5 | PLC | Projeto de Lei Complementar |
+| 6 | PDL | Projeto de Decreto Legislativo |
+| 2 | PRE | Projeto de Resolução |
+
+### 3.3. IDs das Comissões Permanentes
+
+| ID | Sigla | Nome |
+|---|---|---|
+| 1 | CLJRF | Legislação, Justiça, Redação Final e Legislação Participativa |
+| 2 | COF | Orçamento, Fiscalização Financeira, Tributação e Controle |
+| 3 | COUTH | Obras, Urbanização, Transportes e Habitação |
+| 4 | CECEJ | Educação, Cultura, Esporte e Juventude |
+| 5 | CDCDHAISU | Defesa do Consumidor, Dir. Humanos, Assuntos Indígenas, Seg. Urbana |
+| 9 | CAG | Agricultura |
+| 10 | CSASM | Saúde, Assistência Social e Meio Ambiente |
+| 12 | CASP | Administração, Serviços Públicos e Previdência |
+| 13 | CPMAIPD | Políticas para Mulheres, Crianças, Adolescentes, Idosos e PcD |
+
+---
+
+## 4. LÓGICA DE ANÁLISE DE COMPETÊNCIA
+
+### 4.1. Competência da CASP (Art. 83-B do RI — Resolução 226/2021)
+
+A CASP opina sobre:
+1. **Regime jurídico e estatuto dos servidores municipais**
+2. **Serviços públicos** não compreendidos nas atribuições das outras comissões *(residual)*
+3. **Direito previdenciário**
+
+### 4.2. Algoritmo de verificação de competência
+
+```python
+def verificar_competencia_casp(ementa: str, texto_pll: str) -> dict:
+    """
+    Retorna análise de competência da CASP sobre a matéria.
+    """
+    palavras_chave_direta = [
+        "servidor", "servidores", "funcionalismo", "cargo", "carreira",
+        "estatuto", "regime jurídico", "aposentadoria", "previdência",
+        "RPPS", "contribuição previdenciária", "plano de cargos",
+        "licença", "estabilidade", "remuneração", "subsídio",
+        "gratificação", "adicional", "contratação", "concurso",
+    ]
+    
+    palavras_chave_residual = [
+        "serviço público", "limpeza urbana", "iluminação",
+        "coleta", "transporte público", "saneamento",
+        "concessão", "permissão", "terceirização",
+        "agente público", "trabalhador público",
+    ]
+    
+    # Competência DIRETA: regime jurídico / previdência
+    competencia_direta = any(p in (ementa + texto_pll).lower() 
+                            for p in palavras_chave_direta)
+    
+    # Competência RESIDUAL: serviços públicos
+    competencia_residual = any(p in (ementa + texto_pll).lower() 
+                              for p in palavras_chave_residual)
+    
+    # Verificar se outra comissão tem competência PRIMÁRIA
+    # (se sim, a matéria pode ser da CASP apenas residualmente)
+    competencia_cecej = any(p in ementa.lower() for p in [
+        "esporte", "desporto", "educação", "cultura", "juventude"
+    ])
+    competencia_couth = any(p in ementa.lower() for p in [
+        "obra", "urbanização", "transporte", "habitação"
+    ])
+    competencia_csasm = any(p in ementa.lower() for p in [
+        "saúde", "meio ambiente", "assistência social"
+    ])
+    
+    return {
+        "competencia_direta": competencia_direta,
+        "competencia_residual": competencia_residual,
+        "outra_comissao_primaria": competencia_cecej or competencia_couth or competencia_csasm,
+        "fundamentacao": "Art. 83-B do RI (Resolução 226/2021)",
+        "tipo": "direta" if competencia_direta else ("residual" if competencia_residual else "questionável")
+    }
+```
+
+### 4.3. Regra para o texto do parecer
+
+- Se **competência direta**: não precisa justificar a competência
+- Se **competência residual**: incluir seção "DA COMPETÊNCIA DESTA COMISSÃO" explicando por que a matéria se enquadra na competência residual
+- Se **competência questionável**: incluir ressalva e sugerir que outra comissão também aprecie
+
+---
+
+## 5. LÓGICA DE ANÁLISE DE MÉRITO
+
+### 5.1. Checklist obrigatório
+
+O sistema deve verificar e reportar no parecer:
+
+```python
+checklist_merito = {
+    # 1. Consultar parecer da PROGE (SEMPRE)
+    "parecer_proge": {
+        "obrigatorio": True,
+        "como_buscar": "documentoacessorio com tipo=24 (Parecer PROGE)",
+        "o_que_extrair": ["conclusão (constitucional/inconstitucional)", "fundamentos"],
+        "regra": "NUNCA gerar parecer sem antes consultar o parecer da PROGE, se existir"
+    },
+    
+    # 2. Consultar parecer do relator da CLJRF
+    "parecer_cljrf": {
+        "obrigatorio": True,
+        "como_buscar": "documentoacessorio com tipo=1 (Parecer Relator) ou tipo=16 (Parecer Comissão)",
+        "o_que_extrair": ["conclusão (constitucional/legal ou não)", "fundamentos"],
+        "regra": "Citar o parecer da CLJRF e do relator quando existirem"
+    },
+    
+    # 3. Impacto financeiro
+    "impacto_financeiro": {
+        "obrigatorio": True,
+        "o_que_verificar": "Se gera ônus ao Executivo, renúncia de receita, dotação orçamentária",
+        "regra": "Se gera impacto, deve ser acompanhado de estimativa (LRF)"
+    },
+    
+    # 4. Constitucionalidade
+    "constitucionalidade": {
+        "verificar": [
+            "Vício de iniciativa (Art. 61, §1º CF — matérias de iniciativa do Executivo)",
+            "Competência municipal (Art. 30 CF)",
+            "Isonomia (Art. 5º CF)",
+            "Livre iniciativa (Art. 170 CF)",
+        ]
+    },
+    
+    # 5. Viabilidade administrativa
+    "viabilidade": {
+        "verificar": [
+            "Existem mecanismos de implementação?",
+            "A fiscalização é possível?",
+            "Os beneficiários estão claramente definidos?",
+        ]
+    }
+}
+```
+
+### 5.2. Árvore de decisão para o voto
+
+```
+INÍCIO
+  │
+  ├── PROGE opinou pela INCONSTITUCIONALIDADE?
+  │     ├── SIM → VOTO CONTRÁRIO (citar parecer PROGE)
+  │     └── NÃO → continuar
+  │
+  ├── Há vício de iniciativa?
+  │     ├── SIM → VOTO CONTRÁRIO (fundamentar Art. 61 CF)
+  │     └── NÃO → continuar
+  │
+  ├── Gera impacto financeiro sem fonte de custeio?
+  │     ├── SIM → VOTO CONTRÁRIO (citar LRF)
+  │     └── NÃO → continuar
+  │
+  ├── A matéria é de competência municipal?
+  │     ├── NÃO → VOTO CONTRÁRIO
+  │     └── SIM → continuar
+  │
+  ├── O mérito é adequado (conveniência/oportunidade)?
+  │     ├── NÃO → VOTO CONTRÁRIO (fundamentar)
+  │     └── SIM → VOTO FAVORÁVEL
+  │
+  └── Precisa de ajustes pontuais?
+        ├── SIM → VOTO FAVORÁVEL COM EMENDAS
+        └── NÃO → VOTO FAVORÁVEL
+```
+
+---
+
+## 6. ESTRUTURA DO PARECER
+
+### 6.1. Seções obrigatórias
+
+```
+CABEÇALHO
+├── CÂMARA MUNICIPAL DE BOA VISTA
+├── Nome da Comissão
+├── PARECER DO RELATOR
+├── Dados: Matéria, Autor, Ementa, Relator(a), Data
+
+I — RELATÓRIO
+├── Resumo do PLL (ementa, autor, data, objeto)
+├── Histórico de tramitação
+├── Síntese dos artigos do PLL (bullet points)
+
+II — DA COMPETÊNCIA DESTA COMISSÃO (se competência residual)
+├── Citação do Art. 83-B
+├── Justificativa da competência sobre a matéria
+
+III — DOS PARECERES ANTERIORES
+├── Parecer da PROGE (nº, data, procurador, conclusão, fundamentos)
+├── Parecer do Relator da CLJRF (nome, data, conclusão)
+├── Links clicáveis para os PDFs no SAPL
+
+IV — ANÁLISE DE MÉRITO
+├── Aspectos relevantes sob a ótica da comissão
+├── Impacto financeiro
+├── Viabilidade administrativa
+├── Precedentes jurisprudenciais (se houver)
+├── Princípios constitucionais aplicáveis
+
+V — CONCLUSÃO
+├── Listagem dos fundamentos (bullet points)
+├── VOTO: FAVORÁVEL ou CONTRÁRIO (em destaque)
+
+RODAPÉ
+├── Local, data (campo aberto para assinatura)
+├── Nome e cargo do relator
+├── Links de referência para documentos no SAPL
+```
+
+### 6.2. Regras de redação
+
+| Regra | Detalhe |
+|---|---|
+| **Tom** | Formal, técnico, impessoal — 3ª pessoa ("esta Relatoria", "esta Comissão") |
+| **Citações** | Usar blockquote para artigos de lei e trechos de pareceres |
+| **Fundamentação** | Sempre citar artigo e norma (ex: "Art. 83-B do RI — Resolução 226/2021") |
+| **Links** | Todos os documentos citados devem ter link clicável para o PDF no SAPL |
+| **Relator vs Relatora** | Usar **Relatora** quando for a Vereadora Carol Dantas |
+| **Comissão** | Nome completo na primeira menção, sigla nas demais |
+| **Nunca** | Nunca mencionar que foi gerado por IA no corpo do parecer |
+
+---
+
+## 7. REGRAS REGIMENTAIS RELEVANTES
+
+### 7.1. Designação do Relator (Art. 69, III)
+
+> O Presidente da Comissão pode "designar-lhes relator **ou** reserva-se para relatá-las pessoalmente"
+
+- O presidente pode ser relator de qualquer matéria, inclusive de sua autoria
+- **NÃO HÁ vedação** no RI da CMBV ao autor ser relator de sua proposição
+- Diferentemente de outras casas legislativas (ex: Recife, ALERJ), a CMBV não proíbe
+
+### 7.2. Prazo (Art. 70 e 71)
+
+| Situação | Prazo |
+|---|---|
+| Designação do relator | 48 horas após recebimento |
+| Emissão do parecer pelo relator | 7 dias |
+| Prazo total da comissão | 10 dias (Art. 71) |
+| Matéria orçamentária | 20 dias (dobro) |
+| Codificação | 30 dias (triplo) |
+| Regime de urgência | 5 dias (metade) |
+
+### 7.3. Deliberação (Art. 73)
+
+- Parecer aprovado por **maioria de votos** dos membros da comissão
+- Se rejeitado, o parecer é a manifestação contrária (relator vencido)
+- Todos os membros **assinam** o parecer (§5º)
+- Voto vencido pode ser apresentado em separado
+
+### 7.4. Relator ad hoc (Art. 77)
+
+Se o relator não emitir parecer no prazo, o Presidente da Câmara designa **relator ad hoc** com prazo de 5 dias.
+
+---
+
+## 8. MAPA DE COMISSÕES E COMPETÊNCIAS
+
+### Para determinar em qual comissão a matéria tramita:
+
+| Comissão | Competência (resumo) | Artigo do RI |
+|---|---|---|
+| **CLJRF** | Constitucionalidade, legalidade, redação final, legislação participativa | Art. 79 |
+| **COF** | Orçamento, finanças, tributos, controle externo, remuneração | Art. 80 |
+| **COUTH** | Obras, urbanização, transportes, habitação | Art. 81 |
+| **CECEJ** | Educação, cultura, esporte, juventude | Art. 82 |
+| **CSASM** | Saúde, assistência social, meio ambiente | Art. 82-A |
+| **CASP** | Servidores, serviços públicos (residual), previdência | Art. 83-B |
+| **CPMAIPD** | Mulheres, crianças, adolescentes, idosos, PcD | Art. 83-C |
+
+> **Regra:** A CLJRF é **obrigatória** para todos os projetos (Art. 79, §1º). As demais são por competência temática.
+
+---
+
+## 9. INTEGRAÇÃO COM O SAPL — ENDPOINTS ÚTEIS
+
+```python
+SAPL_BASE = "https://sapl.boavista.rr.leg.br/api/"
+
+# Buscar matéria por número e ano
+f"{SAPL_BASE}materia/materialegislativa/?numero={N}&ano={ANO}&tipo={TIPO}&format=json"
+
+# Buscar documentos acessórios (pareceres, atas)
+f"{SAPL_BASE}materia/documentoacessorio/?materia={ID}&format=json"
+
+# Buscar tramitação
+f"{SAPL_BASE}materia/tramitacao/?materia={ID}&format=json"
+
+# Buscar autoria
+f"{SAPL_BASE}materia/autoria/?materia={ID}&format=json"
+
+# Buscar composição da comissão
+f"{SAPL_BASE}comissoes/comissao/{ID_COMISSAO}/"
+
+# IDs de tipos de documento acessório relevantes
+# 1  = Parecer de Relator de Comissão
+# 16 = Parecer de Comissão
+# 17 = Ata de Reunião de Comissão Permanente
+# 24 = Parecer da Procuradoria Geral / Proc. Legislativa
+# 37 = Ofício de Cobrança de Prazo Expirado
+# 13 = Certidão de Lido no Expediente
+```
+
+---
+
+## 10. EXEMPLO DE PROMPT PARA A IA
+
+Quando for usar IA generativa para redigir o parecer, este é o modelo de prompt:
+
+```
+Gere um parecer de relator para a Comissão {NOME_COMISSAO} da Câmara 
+Municipal de Boa Vista sobre o {TIPO} nº {NUMERO}/{ANO}.
+
+DADOS DA MATÉRIA:
+- Ementa: {EMENTA}
+- Autor: {AUTOR}
+- Data de apresentação: {DATA}
+
+TEXTO DO PROJETO:
+{TEXTO_COMPLETO_DO_PLL}
+
+PARECER DA PROCURADORIA (PROLEG):
+{TEXTO_PARECER_PROGE}
+
+PARECER DO RELATOR DA CLJRF:
+{TEXTO_PARECER_CLJRF}
+
+INSTRUÇÕES:
+1. O parecer deve ter EXATAMENTE as seguintes seções: 
+   I — Relatório, II — Da Competência desta Comissão (se necessário), 
+   III — Dos Pareceres Anteriores, IV — Análise de Mérito, V — Conclusão.
+2. O voto deve ser: {FAVORAVEL|CONTRARIO} — NUNCA usar "voto em cautela".
+3. Citar os artigos do Regimento Interno quando aplicável.
+4. Citar o parecer da PROGE e do relator da CLJRF com seus fundamentos.
+5. Tom formal, impessoal, técnico.
+6. Relatora: Vereadora Carol Dantas — Presidente da CASP.
+7. NÃO mencionar que foi gerado por IA.
+```
+
+---
+
+*Documento elaborado com base na análise do Regimento Interno da CMBV (Resolução 93/1998 e alterações) realizada em 18/03/2026.*

@@ -1,0 +1,60 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fundo Gradient Escuro -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a4569" />
+      <stop offset="100%" stop-color="#0b192c" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bgGradient)" />
+
+  <!-- Circulo Eletrônico / Trilhas -->
+  <g stroke="#488DC7" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Trilhas da esquerda -->
+    <path d="M4 16h6l4-4h8" />
+    <path d="M4 24h10l4 4" />
+    <path d="M4 32h14" />
+    <path d="M4 40h10l4-4" />
+    <path d="M4 48h6l4 4h8" />
+    <circle cx="22" cy="12" r="2" fill="#488DC7"/>
+    <circle cx="22" cy="52" r="2" fill="#488DC7"/>
+    <circle cx="18" cy="28" r="1.5" fill="#488DC7"/>
+    <circle cx="18" cy="36" r="1.5" fill="#488DC7"/>
+
+    <!-- Trilhas da direita -->
+    <path d="M60 16h-6l-4-4h-8" />
+    <path d="M60 24h-10l-4 4" />
+    <path d="M60 32h-14" />
+    <path d="M60 40h-10l-4-4" />
+    <path d="M60 48h-6l-4 4h-8" />
+    <circle cx="42" cy="12" r="2" fill="#488DC7"/>
+    <circle cx="42" cy="52" r="2" fill="#488DC7"/>
+    <circle cx="46" cy="28" r="1.5" fill="#488DC7"/>
+    <circle cx="46" cy="36" r="1.5" fill="#488DC7"/>
+
+    <!-- Trilhas verticais baixo -->
+    <path d="M26 60v-6" />
+    <path d="M32 60v-10" />
+    <path d="M38 60v-6" />
+  </g>
+
+  <!-- Prédio Governamental (Centro) -->
+  <g fill="#A9D4F5">
+    <!-- Telhado Triângulo -->
+    <polygon points="32,16 18,24 46,24" />
+    <!-- Círculo Frontal do Telhado -->
+    <circle cx="32" cy="21" r="1.5" fill="#0b192c" />
+    <!-- Base Telhado -->
+    <rect x="18" y="25" width="28" height="2" />
+    
+    <!-- Pilares -->
+    <rect x="20" y="28" width="3" height="14" />
+    <rect x="26" y="28" width="3" height="14" />
+    <rect x="35" y="28" width="3" height="14" />
+    <rect x="41" y="28" width="3" height="14" />
+    
+    <!-- Escadaria Base -->
+    <rect x="18" y="43" width="28" height="2" />
+    <rect x="16" y="46" width="32" height="3" />
+  </g>
+</svg>

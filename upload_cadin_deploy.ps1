@@ -1,0 +1,26 @@
+$VPS = "root@76.13.170.230"
+$DEST = "/opt/gabinete-carol"
+
+Write-Host "Criando pastas no VPS se nao existirem..."
+ssh ${VPS} "mkdir -p '${DEST}/src/components/cadin-core'"
+ssh ${VPS} "mkdir -p '${DEST}/src/components'"
+ssh ${VPS} "mkdir -p '${DEST}/src/app/api/cadin/export-pdf'"
+ssh ${VPS} "mkdir -p '${DEST}/src/app/api/cadin/persons/[id]'"
+ssh ${VPS} "mkdir -p '${DEST}/src/app/api/cadin/sync-do'"
+ssh ${VPS} "mkdir -p '${DEST}/public'"
+ssh ${VPS} "mkdir -p '${DEST}/supabase/migrations'"
+
+Write-Host "Copiando Arquivos do CADIN e ALIA..."
+scp "src/components/global-alia-widget.tsx" "${VPS}:'${DEST}/src/components/global-alia-widget.tsx'"
+scp "src/components/cadin-core/cadin-dashboard.tsx" "${VPS}:'${DEST}/src/components/cadin-core/cadin-dashboard.tsx'"
+scp "src/app/api/cadin/export-pdf/route.ts" "${VPS}:'${DEST}/src/app/api/cadin/export-pdf/route.ts'"
+scp "src/app/api/cadin/persons/[id]/route.ts" "${VPS}:'${DEST}/src/app/api/cadin/persons/[id]/route.ts'"
+scp "src/app/api/cadin/persons/route.ts" "${VPS}:'${DEST}/src/app/api/cadin/persons/route.ts'"
+scp "src/app/api/cadin/sync-do/route.ts" "${VPS}:'${DEST}/src/app/api/cadin/sync-do/route.ts'"
+scp "public/brasao_roraima.png" "${VPS}:'${DEST}/public/brasao_roraima.png'"
+scp "supabase/migrations/021_cadin_endereco.sql" "${VPS}:'${DEST}/supabase/migrations/021_cadin_endereco.sql'"
+
+Write-Host "Realizando Rebuild do Container na VPS..."
+ssh ${VPS} "cd ${DEST} && docker compose build --no-cache && docker compose up -d"
+
+Write-Host "Deploy de Cadin v2.1 concluido."

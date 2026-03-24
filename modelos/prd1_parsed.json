@@ -1,0 +1,686 @@
+[
+  {
+    "style": "Normal",
+    "text": "PRD — PRODUTO"
+  },
+  {
+    "style": "Normal",
+    "text": "ALIA Legislativo"
+  },
+  {
+    "style": "Normal",
+    "text": "Módulo de Criação e Acompanhamento de Projetos de Lei"
+  },
+  {
+    "style": "Normal",
+    "text": "Gabinete Virtual  ·  Ver. Carol Dantas  ·  Câmara Municipal de Boa Vista — RR"
+  },
+  {
+    "style": "Normal",
+    "text": "Versão 1.0  ·  Março de 2026"
+  },
+  {
+    "style": "Heading 1",
+    "text": "1. Visão Geral"
+  },
+  {
+    "style": "Normal",
+    "text": "Este documento define o escopo, a arquitetura funcional, os system prompts, os requisitos técnicos e as especificações de interface do módulo ALIA Legislativo, a ser integrado ao Gabinete Virtual (gabinete.wonetechnology.cloud). O módulo automatiza — com supervisão humana obrigatória — o ciclo completo de criação, análise e acompanhamento de projetos de lei no âmbito da Câmara Municipal de Boa Vista, estado de Roraima."
+  },
+  {
+    "style": "Heading 2",
+    "text": "1.1 Problema a resolver"
+  },
+  {
+    "style": "Normal",
+    "text": "A assessora parlamentar da Vereadora Carol Dantas executa manualmente as seguintes etapas para cada novo PL: pesquisa de projetos similares no SAPL, verificação de constitucionalidade e adequação à Lei Orgânica do Município, redação do texto no formato técnico legislativo, acompanhamento da tramitação e manutenção de um mapa da produção legislativa da vereadora. Cada ciclo demanda entre 4 e 8 horas de trabalho. O objetivo do módulo ALIA Legislativo é reduzir esse tempo para menos de 1 hora por PL, mantendo qualidade jurídica, rastreabilidade e controle humano sobre cada decisão."
+  },
+  {
+    "style": "Heading 2",
+    "text": "1.2 Solução proposta"
+  },
+  {
+    "style": "Normal",
+    "text": "A ALIA (Assessora Parlamentar de Inteligência Artificial) atuará em quatro agentes especializados — Pesquisadora, Jurídica, Estrategista e Redatora — cada um com system prompt dedicado, ativados sequencialmente ao longo do fluxo de criação. Um quinto componente, o Painel de Produção Legislativa, agrega e visualiza o portfólio completo da vereadora com dados sincronizados do SAPL."
+  },
+  {
+    "style": "Heading 2",
+    "text": "1.3 Fases do desenvolvimento"
+  },
+  {
+    "style": "Heading 1",
+    "text": "2. Fluxo do Sistema"
+  },
+  {
+    "style": "Normal",
+    "text": "O fluxo é iniciado pela assessora ou pela vereadora, que propõe um tema ou traz um PL de referência. A ALIA conduz todas as etapas de pesquisa, análise e redação. O único ponto de decisão humana obrigatório ocorre antes do protocolamento."
+  },
+  {
+    "style": "Heading 2",
+    "text": "2.1 Etapas do fluxo"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Origem do tema — vereadora ou assessora insere o tema, descrição e contexto político no módulo."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Pesquisa de similares — agente Pesquisadora varre o SAPL de Boa Vista e referências nacionais."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Análise jurídica — agente Jurídica verifica constitucionalidade e adequação às leis municipais de Boa Vista/RR."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Projetos acessórios — agente Estrategista sugere PLs complementares ao PL tronco."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Redação — agente Redatora gera o texto completo conforme LC 95/98 e o Manual de Técnica Legislativa do Senado."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Revisão humana — assessora revisa, ajusta e aprova ou devolve para retrabalho."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Protocolamento — registro interno no Gabinete Virtual; submissão ao SAPL manual ou automatizada."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Monitoramento contínuo — cron job acompanha tramitação e notifica mudanças de status."
+  },
+  {
+    "style": "Heading 2",
+    "text": "2.2 Ponto de controle humano"
+  },
+  {
+    "style": "Normal",
+    "text": "A revisão da assessora (etapa 6) é obrigatória e não pode ser suprimida pelo sistema. Nenhum PL pode ser protocolado sem aprovação explícita registrada no sistema. O registro da aprovação inclui: usuário, timestamp e versão do texto aprovado."
+  },
+  {
+    "style": "Heading 1",
+    "text": "3. Painel de Produção Legislativa"
+  },
+  {
+    "style": "Normal",
+    "text": "O painel é a tela principal do módulo. Exibe o portfólio completo de proposições da vereadora, sincronizado com o SAPL, e serve como ponto de entrada para o fluxo de criação de novos PLs."
+  },
+  {
+    "style": "Heading 2",
+    "text": "3.1 Componentes visuais"
+  },
+  {
+    "style": "Heading 2",
+    "text": "3.2 Especificações dos cards de métricas"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Total de proposições: contagem geral de todos os tipos (PLL, REQ, DEC, PRE, outros)."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Projetos de Lei (PLL): apenas proposições do tipo PLL — lei ordinária ou complementar."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Em tramitação: PLs com status ativo (recebido, em comissão, aguardando votação)."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Outros: requerimentos, decretos legislativos, indicações e demais tipos."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Arquivados: PLs com status encerrado por rejeição ou arquivamento."
+  },
+  {
+    "style": "Heading 2",
+    "text": "3.3 Distribuição por tema — barras coloridas"
+  },
+  {
+    "style": "Normal",
+    "text": "Cada PL recebe uma etiqueta de tema na entrada (ou por classificação automática da ALIA). O painel agrupa por tema e exibe barras horizontais proporcionais à quantidade, cada barra com cor distinta por categoria (ordenamento urbano, saúde, educação, direitos da mulher, cultura, esporte etc.). A cor é atribuída automaticamente por índice de categoria, seguindo a paleta do design system do Gabinete Virtual."
+  },
+  {
+    "style": "Heading 2",
+    "text": "3.4 Sincronização com SAPL"
+  },
+  {
+    "style": "Normal",
+    "text": "A Câmara Municipal de Boa Vista utiliza o SAPL (Sistema de Apoio ao Processo Legislativo) fornecido pelo Interlegis/Senado Federal. A sincronização deve ser implementada por scraping HTTP das páginas públicas do SAPL, já que a API REST pode não estar exposta na instância municipal. O scraper deve capturar: número do PL, ementa, autor, data de apresentação, tipo (PLL, REQ, DEC etc.) e status atual de tramitação."
+  },
+  {
+    "style": "Heading 1",
+    "text": "4. Agentes ALIA — System Prompts"
+  },
+  {
+    "style": "Normal",
+    "text": "Cada agente é instanciado como uma chamada independente à API da Anthropic (claude-sonnet-4-20250514) com system prompt dedicado. O output de cada agente é validado como JSON antes de prosseguir para a próxima etapa. Em caso de falha na validação, o sistema exibe o erro ao usuário e permite nova tentativa."
+  },
+  {
+    "style": "Heading 2",
+    "text": "4.1 Contrato de entrada e saída — Agente Pesquisadora"
+  },
+  {
+    "style": "Heading 3",
+    "text": "Entrada (request body)"
+  },
+  {
+    "style": "Normal",
+    "text": "{ \"tema\": \"string\", \"descricao\": \"string\", \"contexto_politico\": \"string\" }"
+  },
+  {
+    "style": "Heading 3",
+    "text": "Saída esperada"
+  },
+  {
+    "style": "Normal",
+    "text": "{\n  \"similares_locais\": [{ \"numero\": \"PLL 38/2026\", \"ementa\": \"...\", \"status\": \"...\" }],\n  \"similares_nacionais\": [{ \"origem\": \"Câmara Municipal SP\", \"titulo\": \"...\", \"url\": \"...\" }],\n  \"recomendacao\": \"prosseguir | arquivar | revisar\",\n  \"justificativa\": \"string\"\n}"
+  },
+  {
+    "style": "Heading 2",
+    "text": "4.2 Contrato de entrada e saída — Agente Jurídica"
+  },
+  {
+    "style": "Heading 3",
+    "text": "Entrada"
+  },
+  {
+    "style": "Normal",
+    "text": "{ \"tema\": \"string\", \"texto_preliminar\": \"string\", \"similares\": [...] }"
+  },
+  {
+    "style": "Heading 3",
+    "text": "Saída esperada"
+  },
+  {
+    "style": "Normal",
+    "text": "{\n  \"risco_nivel\": \"baixo | medio | alto\",\n  \"pontos_atencao\": [\"string\"],\n  \"conflitos_lei_organica\": [\"string\"],\n  \"conflitos_leis_municipais\": [\"string\"],\n  \"parecer_resumido\": \"string\",\n  \"viabilidade\": \"aprovado | condicional | reprovado\"\n}"
+  },
+  {
+    "style": "Heading 2",
+    "text": "4.3 Contrato de entrada e saída — Agente Redatora"
+  },
+  {
+    "style": "Heading 3",
+    "text": "Entrada"
+  },
+  {
+    "style": "Normal",
+    "text": "{\n  \"tema\": \"string\",\n  \"descricao\": \"string\",\n  \"diretrizes_politicas\": \"string\",\n  \"parecer_juridico\": { ... },\n  \"vereadora\": \"Ver. Carol Dantas\",\n  \"municipio\": \"Boa Vista\",\n  \"estado\": \"RR\"\n}"
+  },
+  {
+    "style": "Heading 3",
+    "text": "Saída esperada"
+  },
+  {
+    "style": "Normal",
+    "text": "{\n  \"epigrafe\": \"PROJETO DE LEI Nº ___, DE ___ DE ___ DE ____\",\n  \"ementa\": \"string\",\n  \"preambulo\": \"string\",\n  \"artigos\": [{ \"numero\": 1, \"texto\": \"string\", \"paragrafos\": [], \"incisos\": [] }],\n  \"clausula_vigencia\": \"string\",\n  \"clausula_revogacao\": \"string | null\",\n  \"justificativa\": \"string\"\n}"
+  },
+  {
+    "style": "Heading 1",
+    "text": "5. Template de Redação — Padrão LC 95/1998"
+  },
+  {
+    "style": "Normal",
+    "text": "Todo PL gerado pela ALIA deve obrigatoriamente seguir a estrutura abaixo, conforme determinado pela Lei Complementar Federal nº 95, de 26 de fevereiro de 1998, e pelo Manual de Técnica Legislativa da Consultoria Legislativa do Senado Federal."
+  },
+  {
+    "style": "Heading 2",
+    "text": "5.1 Estrutura obrigatória"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "EPÍGRAFE — grafada em letras maiúsculas. Exemplo: PROJETO DE LEI Nº ___, DE ___ DE ___ DE ____."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "EMENTA — em destaque (negrito), explicitando de modo conciso o objeto da lei."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "PREÂMBULO — indica o órgão competente e a base legal. Exemplo: A CÂMARA MUNICIPAL DE BOA VISTA aprova:"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Art. 1º — enuncia o objeto da lei e o respectivo âmbito de aplicação."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "ARTIGOS NORMATIVOS — conteúdo substantivo da lei. Artigos 1º ao 9º: ordinais por extenso. Do Art. 10 em diante: cardinais (Art. 10, Art. 11...)."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "CLÁUSULA DE VIGÊNCIA — obrigatória. Exemplo: Esta Lei entra em vigor na data de sua publicação."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "CLÁUSULA DE REVOGAÇÃO — quando aplicável. Deve ser expressa e específica; é proibida a forma genérica 'revogam-se as disposições em contrário'."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "JUSTIFICATIVA — documento separado, não integra o texto da lei. Deve conter: contextualização, fundamentação jurídica, impacto social esperado e referências."
+  },
+  {
+    "style": "Heading 2",
+    "text": "5.2 Regras de redação (LC 95/1998, art. 11)"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Usar palavras e expressões em seu sentido comum, salvo quando a matéria for técnica."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Frases curtas e concisas; oração na ordem direta."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Uniformidade de tempo verbal em todo o texto; preferência pelo presente ou futuro simples."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Cada lei trata de um único objeto (princípio da unicidade)."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "O mesmo assunto não pode ser disciplinado por mais de uma lei, salvo remissão expressa."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Artigos desdobram-se em parágrafos (§) ou incisos (I, II, III...); parágrafos em incisos; incisos em alíneas (a, b, c...)."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Capítulos, Títulos, Livros e Partes são grafados em maiúsculas e identificados por algarismos romanos."
+  },
+  {
+    "style": "Heading 1",
+    "text": "6. Monitoramento de Tramitação"
+  },
+  {
+    "style": "Normal",
+    "text": "Após o protocolamento, a ALIA passa a monitorar o andamento do PL no SAPL e notifica a assessora sobre qualquer mudança de status. O monitoramento é passivo — não interfere na tramitação."
+  },
+  {
+    "style": "Heading 2",
+    "text": "6.1 Estados de tramitação monitorados"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Recebido / Protocolado"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Distribuído para comissão"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Em análise na comissão"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Aguardando votação em plenário"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Aprovado em plenário"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Enviado para sanção / promulgação"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Sancionado e publicado"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Arquivado / Rejeitado"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Retirado pelo autor"
+  },
+  {
+    "style": "Heading 2",
+    "text": "6.2 Timeline interna do PL"
+  },
+  {
+    "style": "Normal",
+    "text": "O Gabinete Virtual deve manter uma timeline cronológica para cada PL, registrando: data de criação pela ALIA, data de aprovação pela assessora, data de protocolamento, e cada mudança de status detectada no SAPL. Essa timeline é exibível no card do PL no painel."
+  },
+  {
+    "style": "Heading 1",
+    "text": "7. Arquitetura Técnica"
+  },
+  {
+    "style": "Normal",
+    "text": "O módulo é desenvolvido sobre a infraestrutura existente do Gabinete Virtual, utilizando o stack Antigravity (orquestração) + Claude Code (backend) + Gemini (frontend). A integração com a API da Anthropic segue o padrão já estabelecido no projeto."
+  },
+  {
+    "style": "Heading 2",
+    "text": "7.1 Endpoints do módulo"
+  },
+  {
+    "style": "Heading 2",
+    "text": "7.2 Modelo de dados — PL"
+  },
+  {
+    "style": "Normal",
+    "text": "{\n  \"id\": \"uuid\",\n  \"numero_sapl\": \"PLL 38/2026\",\n  \"titulo\": \"string\",\n  \"ementa\": \"string\",\n  \"tema\": \"string\",\n  \"status\": \"rascunho | revisao | aprovado | protocolado | tramitando | aprovado_camara | arquivado\",\n  \"texto_gerado\": { \"epigrafe\": \"...\", \"artigos\": [...], \"justificativa\": \"...\" },\n  \"analise_juridica\": { \"risco_nivel\": \"...\", \"parecer_resumido\": \"...\" },\n  \"pesquisa_similares\": { \"similares_locais\": [...], \"recomendacao\": \"...\" },\n  \"pls_acessorios_sugeridos\": [...],\n  \"aprovado_por\": \"usuario_id | null\",\n  \"aprovado_em\": \"timestamp | null\",\n  \"historico_status\": [{ \"status\": \"...\", \"data\": \"...\", \"fonte\": \"interno | sapl\" }],\n  \"criado_em\": \"timestamp\",\n  \"atualizado_em\": \"timestamp\"\n}"
+  },
+  {
+    "style": "Heading 2",
+    "text": "7.3 Integrações externas"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "SAPL Câmara Municipal de Boa Vista — scraping HTTP (URL base a confirmar com a TI da Câmara)."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "API Anthropic — claude-sonnet-4-20250514 para todos os agentes ALIA."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Sistema de notificações do Gabinete Virtual — push interno + e-mail."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Cron scheduler — verificação de tramitação a cada 6 horas (horário de Brasília)."
+  },
+  {
+    "style": "Heading 1",
+    "text": "8. Critérios de Aceite"
+  },
+  {
+    "style": "Heading 2",
+    "text": "8.1 Painel de Produção Legislativa"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Exibe corretamente todos os PLs da vereadora sincronizados do SAPL."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Filtros de status funcionam sem recarregamento de página."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Barras de tema refletem a distribuição real dos PLs cadastrados."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Cada card exibe: número, ementa truncada, tema, data e badge de status."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Cards clicáveis abrem o detalhe do PL ou iniciam resumo da ALIA."
+  },
+  {
+    "style": "Heading 2",
+    "text": "8.2 Fluxo ALIA de criação"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Agente Pesquisadora retorna JSON válido em menos de 30 segundos."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Agente Jurídica retorna JSON válido com risco_nivel preenchido."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Agente Redatora gera texto com todos os campos obrigatórios da LC 95/1998."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Nenhum PL pode ser protocolado sem registro de aprovação humana."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Em caso de erro em qualquer agente, o sistema exibe mensagem e permite retry."
+  },
+  {
+    "style": "Heading 2",
+    "text": "8.3 Monitoramento"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Cron job executa sem falhas silenciosas — falhas são registradas em log e notificadas."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Mudança de status detectada é refletida no painel em até 10 minutos após o cron."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Timeline do PL é persistida e exibível no detalhe do card."
+  },
+  {
+    "style": "Heading 1",
+    "text": "9. Fora de Escopo (v1.0)"
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Submissão automatizada ao SAPL — protocolamento é manual nesta versão."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Análise de impacto orçamentário dos PLs."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Geração de discursos parlamentares baseados nos PLs."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Integração com sistemas de outros vereadores ou câmaras externas."
+  },
+  {
+    "style": "List Paragraph",
+    "text": "Módulo de votação ou quórum."
+  },
+  {
+    "style": "Normal",
+    "text": "Nota: Esses itens podem ser incorporados em versões futuras (v1.1 em diante) conforme demanda e prioridade da equipe."
+  },
+  {
+    "style": "Heading 1",
+    "text": "10. Glossário"
+  },
+  {
+    "style": "Normal",
+    "text": "— Fim do documento —"
+  },
+  {
+    "style": "Table_0",
+    "text": "Projeto\nALIA — Módulo Legislativo Estratégico | Versão\n1.0 — Março 2026"
+  },
+  {
+    "style": "Table_0",
+    "text": "Sistema\nGabinete Virtual · gabinete.wonetechnology.cloud | Plataforma\nAntigravity + Claude Code + Gemini"
+  },
+  {
+    "style": "Table_0",
+    "text": "Responsável\nGabinete da Ver. Carol Dantas — Câmara Municipal de Boa Vista/RR | Assessora\nIntegração direta com assessora parlamentar"
+  },
+  {
+    "style": "Table_1",
+    "text": "Fase | Módulo | Prioridade | Dependência"
+  },
+  {
+    "style": "Table_1",
+    "text": "1 | Painel de Produção Legislativa | Alta | SAPL scraping"
+  },
+  {
+    "style": "Table_1",
+    "text": "2 | Pesquisa de Similares (ALIA) | Alta | API Anthropic"
+  },
+  {
+    "style": "Table_1",
+    "text": "3 | Análise Jurídica Assistida | Alta | Fase 2"
+  },
+  {
+    "style": "Table_1",
+    "text": "4 | Sugestão de PLs Acessórios | Média | Fase 3"
+  },
+  {
+    "style": "Table_1",
+    "text": "5 | Redação Automatizada (LC 95/98) | Alta | Fases 2, 3"
+  },
+  {
+    "style": "Table_1",
+    "text": "6 | Revisão e Aprovação Humana | Alta | Fase 5"
+  },
+  {
+    "style": "Table_1",
+    "text": "7 | Protocolamento e Registro | Média | Fase 6"
+  },
+  {
+    "style": "Table_1",
+    "text": "8 | Monitoramento de Tramitação | Média | Fase 7"
+  },
+  {
+    "style": "Table_2",
+    "text": "Componente | Descrição | Dado"
+  },
+  {
+    "style": "Table_2",
+    "text": "Métricas resumo | 5 cards: Total, PLLs, Tramitando, Outros, Arquivados | SAPL scraping"
+  },
+  {
+    "style": "Table_2",
+    "text": "Filtros de status | Tabs: Todos / Aprovados / Tramitando / Em comissão / Arquivados | client-side"
+  },
+  {
+    "style": "Table_2",
+    "text": "Lista de PLs | Cards clicáveis: número, título, tema-pill, data, badge de status | SAPL scraping"
+  },
+  {
+    "style": "Table_2",
+    "text": "Distribuição por tema | Barras horizontais coloridas por categoria temática | derivado dos PLs"
+  },
+  {
+    "style": "Table_2",
+    "text": "Botão 'Nova Proposição (IA)' | Abre fluxo ALIA para criação assistida de novo PL | interno"
+  },
+  {
+    "style": "Table_3",
+    "text": "Agente ALIA | Instrução central do system prompt"
+  },
+  {
+    "style": "Table_3",
+    "text": "Pesquisadora | Você é especialista em pesquisa legislativa municipal brasileira. Recebe um tema e retorna: (1) PLs idênticos ou similares já existentes no SAPL de Boa Vista/RR, (2) referências nacionais relevantes, (3) recomendação de prosseguir ou arquivar. Responda em JSON estruturado."
+  },
+  {
+    "style": "Table_3",
+    "text": "Jurídica | Você é consultora jurídica especializada em direito municipal e constitucional brasileiro. Analise o tema legislativo proposto e retorne: (1) riscos de inconstitucionalidade, (2) conflitos com a Lei Orgânica do Município de Boa Vista, (3) conflitos com leis municipais vigentes, (4) parecer de viabilidade. Responda em JSON com campos: risco_nivel (baixo/médio/alto), pontos_atenção (array), parecer_resumido."
+  },
+  {
+    "style": "Table_3",
+    "text": "Estrategista | Você é assessora parlamentar sênior. Com base no PL tronco descrito, sugira entre 1 e 3 projetos de lei acessórios que potencializem seus efeitos políticos e práticos. Para cada sugestão inclua: título, ementa resumida, conexão com o PL principal, impacto esperado. Responda em JSON."
+  },
+  {
+    "style": "Table_3",
+    "text": "Redatora | Você é redatora legislativa especializada, seguindo rigorosamente a Lei Complementar Federal nº 95/1998 e o Manual de Técnica Legislativa do Senado Federal. Toda proposição deve conter: (1) EPÍGRAFE em maiúsculas, (2) EMENTA em destaque, (3) PREÂMBULO com base legal, (4) Art. 1º com objeto e âmbito, (5) artigos normativos numerados ordinalmente até o nono e cardinalmente a partir do décimo, (6) cláusula de vigência expressa, (7) cláusula de revogação quando couber — nunca genérica, (8) JUSTIFICATIVA como documento separado. Frases curtas, ordem direta, tempo verbal no presente ou futuro simples."
+  },
+  {
+    "style": "Table_4",
+    "text": "Componente | Detalhe"
+  },
+  {
+    "style": "Table_4",
+    "text": "Fonte de dados | SAPL Câmara Municipal Boa Vista — scraping HTTP ou API REST se disponível"
+  },
+  {
+    "style": "Table_4",
+    "text": "Frequência | Cron job a cada 6 horas — verificar mudança de status nos PLs protocolados"
+  },
+  {
+    "style": "Table_4",
+    "text": "Eventos monitorados | Mudança de status: Recebido → Em comissão → Votação → Aprovado / Arquivado"
+  },
+  {
+    "style": "Table_4",
+    "text": "Notificação | Push no Gabinete Virtual + e-mail para a assessora + registro em timeline do PL"
+  },
+  {
+    "style": "Table_4",
+    "text": "Fallback | Se SAPL offline, registrar falha e tentar novamente na próxima janela"
+  },
+  {
+    "style": "Table_5",
+    "text": "Endpoint | Método | Descrição"
+  },
+  {
+    "style": "Table_5",
+    "text": "/api/legislativo/producao | GET | Lista PLs do vereador com filtros"
+  },
+  {
+    "style": "Table_5",
+    "text": "/api/legislativo/pesquisa-similares | POST | ALIA pesquisa PLs similares"
+  },
+  {
+    "style": "Table_5",
+    "text": "/api/legislativo/analise-juridica | POST | ALIA retorna análise constitucional"
+  },
+  {
+    "style": "Table_5",
+    "text": "/api/legislativo/sugerir-acessorios | POST | ALIA sugere PLs complementares"
+  },
+  {
+    "style": "Table_5",
+    "text": "/api/legislativo/redigir | POST | ALIA gera texto completo no padrão LC 95/98"
+  },
+  {
+    "style": "Table_5",
+    "text": "/api/legislativo/monitoramento | GET | Status de tramitação de um PL no SAPL"
+  },
+  {
+    "style": "Table_6",
+    "text": "Termo | Definição"
+  },
+  {
+    "style": "Table_6",
+    "text": "ALIA | Assessora Parlamentar de Inteligência Artificial — nome da IA do Gabinete Virtual."
+  },
+  {
+    "style": "Table_6",
+    "text": "SAPL | Sistema de Apoio ao Processo Legislativo — plataforma Interlegis/Senado usada pela Câmara de Boa Vista."
+  },
+  {
+    "style": "Table_6",
+    "text": "LC 95/1998 | Lei Complementar Federal nº 95/1998 — norma que define a estrutura e técnica de elaboração de leis no Brasil."
+  },
+  {
+    "style": "Table_6",
+    "text": "PLL | Projeto de Lei Legislativo — proposição de lei ordinária apresentada pelo vereador."
+  },
+  {
+    "style": "Table_6",
+    "text": "REQ | Requerimento — solicitação formal de informação ou providência."
+  },
+  {
+    "style": "Table_6",
+    "text": "Ementa | Resumo conciso do objeto da lei, grafado em destaque na parte preliminar da proposição."
+  },
+  {
+    "style": "Table_6",
+    "text": "Epígrafe | Identificação da lei em letras maiúsculas: tipo normativo, número e ano."
+  },
+  {
+    "style": "Table_6",
+    "text": "Cláusula de vigência | Artigo que determina quando a lei entra em vigor — obrigatória em toda proposição."
+  },
+  {
+    "style": "Table_6",
+    "text": "System Prompt | Instrução inicial enviada à IA definindo seu papel, escopo e formato de resposta esperado."
+  },
+  {
+    "style": "Table_6",
+    "text": "Antigravity | Plataforma de orquestração de agentes de IA utilizada como camada de integração do Gabinete Virtual."
+  }
+]
