@@ -46,6 +46,15 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Base de conhecimento jurídico (RAG) — necessário para /api/pareceres/gerar
 COPY --from=builder --chown=nextjs:nodejs /app/base_conhecimento ./base_conhecimento
 
+# pdfkit: fontes AFM — copiadas para /app e para /ROOT (caminho resolvido pelo Turbopack em runtime)
+COPY --from=builder /app/node_modules/pdfkit/js/data ./node_modules/pdfkit/js/data
+RUN mkdir -p /ROOT/node_modules/pdfkit/js && \
+    cp -r /app/node_modules/pdfkit/js/data /ROOT/node_modules/pdfkit/js/data && \
+    chown -R nextjs:nodejs /app/node_modules/pdfkit /ROOT
+
+# Marcas institucionais (brasão, logos) — usadas na capa dos PDFs gerados
+COPY --from=builder --chown=nextjs:nodejs /app/Marcas ./Marcas
+
 USER nextjs
 
 EXPOSE 3000

@@ -1,38 +1,56 @@
 // POST /api/pls/analise-juridica
-// Agente Jurídica — Etapa 2 do Wizard ALIA Legislativo
-// Recebe: { tema, texto_preliminar, similares }
-// Retorna: { risco_nivel, pontos_atencao, conflitos_lei_organica, conflitos_leis_municipais, parecer_resumido, viabilidade, recomendacoes }
+// Agente Jurídica v2 — Etapa 2 do Wizard ALIA Legislativo
+// Corrigido: maxOutputTokens expandido, prompt que exige análise ESPECÍFICA ao tema
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const SYSTEM_PROMPT_JURIDICA = `Você é a ALIA, consultora jurídica especializada em direito municipal e constitucional brasileiro, atuando no Gabinete da Vereadora Carol Dantas, Câmara Municipal de Boa Vista, Roraima.
+const SYSTEM_PROMPT_JURIDICA = `Você é a ALIA, consultora jurídica especializada em direito municipal e constitucional brasileiro, do Gabinete da Vereadora Carol Dantas, Câmara Municipal de Boa Vista, Roraima.
 
-SUA FUNÇÃO NESTA ETAPA:
-Emitir um parecer técnico-jurídico completo sobre um Projeto de Lei proposto, verificando sua constitucionalidade e adequação ao ordenamento jurídico municipal.
+═══════════════════════════════════════════
+ REGRA ZERO — ANÁLISE ESPECÍFICA
+═══════════════════════════════════════════
+Você DEVE analisar EXCLUSIVAMENTE o tema informado pelo usuário.
+NÃO reutilize análises de outros temas.
+Se o tema é "pets no transporte público", analise ISSO — não analise inclusão de autistas.
+CADA análise é ÚNICA para o tema solicitado.
 
-CHECKLIST DE ANÁLISE OBRIGATÓRIA:
+═══════════════════════════════════════════
+ CHECKLIST DE ANÁLISE OBRIGATÓRIA
+═══════════════════════════════════════════
 
 [COMPETÊNCIA] Art. 30 CF/88 — O tema é de competência da Câmara Municipal?
-- Competência legislativa plena (Art. 30, I): assuntos de interesse local
+- Competência legislativa local (Art. 30, I): assuntos de interesse local
 - Competência suplementar (Art. 30, II): interesse local supletivo
-- Competência privativa do Executivo (Art. 61 CF/88 aplicado por simetria)?
+- Risco de invadir competência privativa da União (Art. 22 CF/88)?
+- Risco de invadir competência do Executivo (Art. 61, §1º CF/88)?
 
 [INICIATIVA] O PL pode ser de iniciativa de vereador?
-- Se criar cargos, estrutura administrativa ou aumentar despesa permanente do Executivo → vício de iniciativa
+- Se criar cargos, servidores ou alterar remuneração → vício de iniciativa
+- Se reorganizar órgãos da administração → competência privativa do Prefeito
+- Se ampliar benefícios funcionais → vício de iniciativa
 
 [IMPACTO FISCAL] Lei de Responsabilidade Fiscal — LC 101/2000:
 - O PL cria despesa? É despesa continuada (>2 exercícios)?
-- Se sim: há indicação de fonte de custeio ou redução de outra despesa?
+- Necessita estimativa de impacto orçamentário?
+- Há indicação de fonte de custeio?
+- Lei de Diretrizes Orçamentárias deve ser observada?
 
-[CONFLITOS LOCAIS] O PL contradiz ou revoga alguma lei municipal vigente de Boa Vista?
+[CONFLITOS LOCAIS] Lei Orgânica Municipal de Boa Vista:
+- Verificar se há artigos específicos da LOM que conflitem
+- Verificar leis municipais vigentes sobre o MESMO tema
 
 [TÉCNICA LEGISLATIVA] LC 95/1998:
 - O objeto é único e bem definido?
 - A cláusula de vigência está correta?
+- Há princípio de proporcionalidade nas obrigações/penalidades?
 
-FORMATO DE SAÍDA: JSON estruturado. Nunca emita pareceres vagos — seja específica nos fundamentos legais citados.
+[CONSTITUCIONALIDADE MATERIAL]
+- O PL respeita direitos fundamentais (Art. 5º CF/88)?
+- Não viola livre iniciativa (Art. 170 CF/88)?
+- Não viola princípio da igualdade?
 
+FORMATO: JSON estruturado com fundamentos legais ESPECÍFICOS — nunca pareceres vagos.
 ESCALA DE RISCO: baixo | medio | alto
 VIABILIDADE: aprovado | condicional | reprovado`;
 
@@ -54,27 +72,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Campo "tema" é obrigatório' }, { status: 400 });
   }
 
-  const userPrompt = `PL A ANALISAR:
-Tema: ${tema}
-${texto_preliminar ? `Esboço do texto:\n${texto_preliminar}` : ''}
-${similares?.length ? `PLs similares identificados na Etapa 1:\n${JSON.stringify(similares, null, 2)}` : ''}
+  const userPrompt = `ATENÇÃO: Analise EXCLUSIVAMENTE o tema abaixo. Não substitua por outro assunto.
 
-Retorne SOMENTE JSON válido no seguinte formato:
+TEMA DO PL A ANALISAR: ${tema}
+${texto_preliminar ? `\nDESCRIÇÃO / ESBOÇO DO TEXTO:\n${texto_preliminar}` : ''}
+${similares?.length ? `\nPLs SIMILARES IDENTIFICADOS (Etapa 1):\n${JSON.stringify(similares, null, 2)}` : ''}
+
+Faça uma análise jurídica COMPLETA e ESPECÍFICA para "${tema}".
+Cite artigos da CF/88, da LOM de Boa Vista e leis municipais quando relevante.
+
+Retorne SOMENTE JSON válido:
 {
   "risco_nivel": "baixo | medio | alto",
   "checklist": {
-    "competencia": { "status": "OK | ATENÇÃO | PROBLEMA", "analise": "string" },
-    "iniciativa": { "status": "OK | ATENÇÃO | PROBLEMA", "analise": "string" },
-    "impacto_fiscal": { "status": "OK | ATENÇÃO | PROBLEMA", "analise": "string" },
-    "conflitos_locais": { "status": "OK | ATENÇÃO | PROBLEMA", "analise": "string" },
-    "tecnica_legislativa": { "status": "OK | ATENÇÃO | PROBLEMA", "analise": "string" }
+    "competencia": { "status": "OK | ATENÇÃO | PROBLEMA", "analise": "string — análise detalhada com fundamento legal", "fundamento": "string — artigos citados" },
+    "iniciativa": { "status": "OK | ATENÇÃO | PROBLEMA", "analise": "string", "fundamento": "string" },
+    "impacto_fiscal": { "status": "OK | ATENÇÃO | PROBLEMA", "analise": "string", "fundamento": "string" },
+    "conflitos_locais": { "status": "OK | ATENÇÃO | PROBLEMA", "analise": "string", "fundamento": "string" },
+    "tecnica_legislativa": { "status": "OK | ATENÇÃO | PROBLEMA", "analise": "string", "fundamento": "string" },
+    "constitucionalidade": { "status": "OK | ATENÇÃO | PROBLEMA", "analise": "string", "fundamento": "string" }
   },
-  "pontos_atencao": ["array de strings — os principais riscos encontrados"],
-  "conflitos_lei_organica": ["array de strings — artigos conflitantes, se houver"],
-  "conflitos_leis_municipais": ["array de strings — leis específicas conflitantes, se houver"],
-  "parecer_resumido": "string — parecer objetivo em 3-5 linhas",
+  "pontos_atencao": ["string — riscos encontrados, específicos para ${tema}"],
+  "conflitos_lei_organica": ["string — artigos da LOM conflitantes, se houver"],
+  "conflitos_leis_municipais": ["string — leis específicas de Boa Vista conflitantes"],
+  "parecer_resumido": "string — parecer objetivo em 3-5 linhas, ESPECÍFICO sobre ${tema}",
   "viabilidade": "aprovado | condicional | reprovado",
-  "recomendacoes": ["array de strings — ajustes sugeridos para mitigar riscos"]
+  "recomendacoes": ["string — ajustes concretos para mitigar riscos"]
 }`;
 
   try {
@@ -83,8 +106,8 @@ Retorne SOMENTE JSON válido no seguinte formato:
       model: 'gemini-2.5-flash',
       systemInstruction: SYSTEM_PROMPT_JURIDICA,
       generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 2048,
+        temperature: 0.4,
+        maxOutputTokens: 8192,
         responseMimeType: 'application/json',
       },
     });

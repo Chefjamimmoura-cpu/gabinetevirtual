@@ -1,32 +1,41 @@
 // POST /api/pls/projetos-acessorios
-// Agente Estrategista — Etapa 3 do Wizard ALIA Legislativo
-// Recebe: { texto_do_pl_principal, tema, parecer_juridico }
-// Retorna: [{ titulo, objeto, relacao_tronco, viabilidade_politica, tipo_sugerido }]
+// Agente Estrategista v2 — Etapa 3 do Wizard ALIA Legislativo
+// Corrigido: REGRA ZERO para especificidade temática, maxOutputTokens expandido
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const SYSTEM_PROMPT_ESTRATEGISTA = `Você é a ALIA, assessora parlamentar estratégica sênior do Gabinete da Vereadora Carol Dantas, Câmara Municipal de Boa Vista, Roraima.
 
-SUA FUNÇÃO NESTA ETAPA:
-Com base no PL principal (tronco), identificar oportunidades de projetos de lei complementares (acessórios) que ampliem o impacto político e legislativo da proposta original.
+═══════════════════════════════════════════
+ REGRA ZERO — CONTEÚDO ESPECÍFICO
+═══════════════════════════════════════════
+Os PLs acessórios DEVEM ser sobre o MESMO EIXO TEMÁTICO do PL tronco.
+Se o tronco é sobre "proteção animal", os acessórios são sobre temas COMPLEMENTARES de proteção animal.
+Se o tronco é sobre "empreendedorismo", os acessórios são sobre temas de empreendedorismo.
+NUNCA sugira PLs de assuntos totalmente diferentes. NUNCA repita o mesmo PL do tronco.
 
-LÓGICA DE IDENTIFICAÇÃO DE ACESSÓRIOS:
-- PL cria um programa? → Acessório pode criar o fundo de financiamento ou regulamentar o programa
-- PL regulamenta atividade? → Acessório pode criar fiscalização ou sistema de multas
-- PL estabelece direito? → Acessório pode criar o mecanismo de garantia ou acesso
-- PL beneficia grupo? → Acessório pode ampliar para grupos relacionados ou complementares
-- PL cria serviço público? → Acessório pode criar o sistema de avaliação ou participação popular
+═══════════════════════════════════════════
+ LÓGICA DE IDENTIFICAÇÃO DE ACESSÓRIOS
+═══════════════════════════════════════════
+Analise o PL tronco e identifique LACUNAS que acessórios podem cobrir:
+
+- PL cria um programa? → Acessório: fundo de financiamento, comitê gestor, regulamentação
+- PL regulamenta atividade? → Acessório: sistema de fiscalização, cadastro, multas progressivas
+- PL estabelece direito? → Acessório: mecanismo de garantia, canal de denúncia, ouvidoria
+- PL beneficia grupo? → Acessório: campanha educativa, capacitação, programa de inclusão
+- PL cria serviço público? → Acessório: sistema de avaliação, participação popular, indicadores
+- PL é sobre saúde/educação? → Acessório: dia municipal, semana de conscientização, premiação
+- PL é sobre comércio/economia? → Acessório: selo/certificação, incentivo fiscal, microcrédito
 
 DIRETRIZES:
-- Pense como um consultor legislativo experiente com visão política estratégica
-- Sugira entre 2 e 5 projetos acessórios viáveis e realistas
-- Priorize projetos que ampliem benefícios para a base eleitoral da Vereadora Carol Dantas
-- Evite projetos que entrem em conflito com o tronco ou criem sobreposição
-- Considere a viabilidade política no contexto da Câmara Municipal de Boa Vista
+- Sugira entre 3 e 5 projetos acessórios DISTINTOS e COMPLEMENTARES
+- Cada acessório deve ter um objeto DIFERENTE do tronco e dos outros acessórios
+- Considere viabilidade política na Câmara Municipal de Boa Vista
+- Priorize projetos com alto impacto social e visibilidade para a Vereadora
 
 VIABILIDADE_POLITICA: "Alta" | "Média" | "Baixa"
-TIPO_SUGERIDO: "PLL" | "DECRETO" | "REQUERIMENTO"`;
+TIPO_SUGERIDO: "PLL" | "DECRETO" | "REQUERIMENTO" | "INDICAÇÃO"`;
 
 export async function POST(request: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -46,23 +55,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Campo "texto_do_pl_principal" ou "tema" é obrigatório' }, { status: 400 });
   }
 
-  const userPrompt = `PL TRONCO:
-${texto_do_pl_principal || `Tema: ${tema}`}
-${parecer_juridico ? `\nParece jurídico (Etapa 2):\n${JSON.stringify(parecer_juridico, null, 2)}` : ''}
+  const temaExplicito = tema || 'extraído do texto do PL principal';
 
-Sugira PLs acessórios. Retorne SOMENTE JSON válido:
+  const userPrompt = `ATENÇÃO: Os PLs acessórios devem ser COMPLEMENTARES ao tema "${temaExplicito}".
+NÃO sugira PLs sobre outros assuntos.
+
+PL TRONCO:
+${texto_do_pl_principal || `Tema: ${tema}`}
+${parecer_juridico ? `\nParecer jurídico (Etapa 2):\n${JSON.stringify(parecer_juridico, null, 2)}` : ''}
+
+Sugira 3 a 5 PLs acessórios COMPLEMENTARES ao tema "${temaExplicito}".
+Cada um deve cobrir uma lacuna ou oportunidade diferente.
+
+Retorne SOMENTE JSON válido:
 {
   "pls_acessorios": [
     {
       "titulo": "string — título do PL acessório",
-      "objeto": "string — descrição em 1 frase do que o PL faz",
-      "relacao_tronco": "string — como este PL complementa o PL principal",
+      "objeto": "string — descrição clara do que o PL faz (1-2 frases)",
+      "relacao_tronco": "string — como este PL complementa o PL principal sobre '${temaExplicito}'",
       "viabilidade_politica": "Alta | Média | Baixa",
-      "tipo_sugerido": "PLL | DECRETO | REQUERIMENTO",
-      "justificativa": "string — por que este acessório é estratégico"
+      "tipo_sugerido": "PLL | DECRETO | REQUERIMENTO | INDICAÇÃO",
+      "justificativa": "string — por que este acessório é estratégico e relevante",
+      "impacto_esperado": "string — impacto social/político esperado"
     }
   ],
-  "estrategia_geral": "string — visão macro da família legislativa formada pelo tronco e acessórios"
+  "estrategia_geral": "string — visão macro da família legislativa sobre '${temaExplicito}'"
 }`;
 
   try {
@@ -71,8 +89,8 @@ Sugira PLs acessórios. Retorne SOMENTE JSON válido:
       model: 'gemini-2.5-flash',
       systemInstruction: SYSTEM_PROMPT_ESTRATEGISTA,
       generationConfig: {
-        temperature: 0.5,
-        maxOutputTokens: 2048,
+        temperature: 0.6,
+        maxOutputTokens: 8192,
         responseMimeType: 'application/json',
       },
     });

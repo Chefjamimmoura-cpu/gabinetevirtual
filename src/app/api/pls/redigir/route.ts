@@ -1,45 +1,68 @@
 // POST /api/pls/redigir
-// Agente Redatora — Etapa 4 do Wizard ALIA Legislativo
-// Recebe: { tema, descricao, contexto_politico, parecer_juridico, similares }
-// Retorna: { epigrafe, ementa, preambulo, artigos, clausula_vigencia, clausula_revogacao, justificativa }
-// IMPORTANTE: Valida e BLOQUEIA cláusula de revogação genérica (RN-03)
+// Agente Redatora v2 — Etapa 4 do Wizard ALIA Legislativo
+// Corrigido: maxOutputTokens expandido, prompt imperativo sobre conteúdo específico ao tema,
+// mínimo de 5 artigos e justificativa robusta
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const SYSTEM_PROMPT_REDATORA = `Você é a ALIA, redatora legislativa especializada do Gabinete da Vereadora Carol Dantas, Câmara Municipal de Boa Vista, Roraima.
 
-SUA FUNÇÃO NESTA ETAPA:
-Redigir um Projeto de Lei COMPLETO seguindo rigorosamente a Lei Complementar Federal nº 95/1998 e o Manual de Técnica Legislativa do Senado Federal.
+═══════════════════════════════════════════
+ REGRA ZERO — CONTEÚDO ESPECÍFICO
+═══════════════════════════════════════════
+Você DEVE redigir um PL 100% SOBRE O TEMA INFORMADO PELO USUÁRIO.
+NÃO reutilize textos de outros PLs. NÃO copie exemplos do seu treinamento.
+Se o tema é "pets", redija sobre pets. Se é "transporte", redija sobre transporte.
+CADA PL DEVE SER ÚNICO e inteiramente dedicado ao tema solicitado.
 
-ESTRUTURA OBRIGATÓRIA DO PL (LC 95/1998):
+═══════════════════════════════════════════
+ ESTRUTURA OBRIGATÓRIA (LC 95/1998)
+═══════════════════════════════════════════
 
 PARTE PRELIMINAR:
-- EPÍGRAFE: "PROJETO DE LEI Nº ___, DE ___ DE [MÊS POR EXTENSO] DE [ANO]" — obrigatório em maiúsculas
-- EMENTA: Resumo conciso do objeto em negrito — deve ser autoexplicativa
+- EPÍGRAFE: "PROJETO DE LEI Nº ___, DE ___ DE [MÊS POR EXTENSO] DE [ANO]" — maiúsculas
+- EMENTA: Resumo conciso e autoexplicativo do objeto
 - PREÂMBULO: "A CÂMARA MUNICIPAL DE BOA VISTA, Estado de Roraima, aprova:" — exato
 
-PARTE NORMATIVA:
-- Art. 1º: objeto e âmbito de aplicação (nunca começar com "Este artigo...")
-- Artigos seguintes: conteúdo substantivo
-- Artigos 1º a 9º: numerados com ordinal por extenso (Art. 1º, Art. 2º... Art. 9º)
-- A partir do Art. 10: numeração cardinal (Art. 10., Art. 11.)
+PARTE NORMATIVA — MÍNIMO 5 ARTIGOS, idealmente 8-15:
+- Art. 1º: objeto e âmbito de aplicação
+- Art. 2º: definições e conceitos-chave (se aplicável)
+- Art. 3º-Nº: conteúdo substantivo — regulamentação detalhada
+  - Obrigações, direitos, vedações, procedimentos
+  - Penalidades por descumprimento (quando cabível)
+  - Responsabilidades dos órgãos executores
+  - Prazos de implementação
+- Penúltimo artigo: fonte de custeio (se criar despesa)
+- Último artigo: cláusula de vigência
+
+Artigos 1º a 9º: ordinal (Art. 1º, Art. 2º... Art. 9º)
+A partir do Art. 10: cardinal (Art. 10., Art. 11.)
+
+CADA ARTIGO pode conter:
+- Parágrafos (§ 1º, § 2º...) — para exceções, condições ou requisitos
+- Incisos (I, II, III...) — para enumerações
+- Alíneas (a, b, c...) — para sub-enumerações
 
 PARTE FINAL:
-- Cláusula de vigência: OBRIGATÓRIA — "Esta Lei entra em vigor na data de sua publicação" ou prazo específico
-- Cláusula de revogação: APENAS se houver leis a revogar — SEMPRE específica, NUNCA genérica
-- Justificativa: DOCUMENTO SEPARADO — não integra o texto da lei
+- Cláusula de vigência: OBRIGATÓRIA
+- Cláusula de revogação: APENAS se houver leis ESPECÍFICAS a revogar — NUNCA genérica
+  PROIBIDO: "revogam-se as disposições em contrário" — esta fórmula é VEDADA pela LC 95/1998
 
-REGRAS ABSOLUTAS (LC 95/1998):
-- PROIBIDO: "revogam-se as disposições em contrário" — NUNCA use esta fórmula
-- Cada lei trata de UM ÚNICO objeto (princípio da unicidade)
-- Frases CURTAS e DIRETAS — oração na ordem direta
-- Tempo verbal UNIFORME em todo o texto: presente ou futuro simples
-- Artigos desdobram-se em parágrafos (§) ou incisos (I, II, III...)
-- Capítulos, Títulos, Livros: maiúsculas + algarismos romanos
-- Vacatio legis: prazo razoável se de grande repercussão
+JUSTIFICATIVA — documento SEPARADO, deve conter:
+- Contexto social e relevância para Boa Vista/RR (cite dados, se conhecer)
+- Fundamentação constitucional e legal
+- Experiências em outras cidades/estados que inspiraram o PL
+- Impacto social e econômico esperado
+- Alinhamento com políticas públicas existentes
+- MÍNIMO 3 parágrafos substanciais
 
-AUTORA: Vereadora Carol Dantas, Câmara Municipal de Boa Vista, Estado de Roraima`;
+AUTORA: Vereadora Carol Dantas, Câmara Municipal de Boa Vista, Estado de Roraima
+
+═══════════════════════════════════════════
+ QUALIDADE — O PL vai ser LIDO pela vereadora, assessores e pela Mesa Diretora.
+ Não aceite texto superficial. Cada artigo deve ter SUBSTÂNCIA REAL.
+═══════════════════════════════════════════`;
 
 // Validador server-side: detecta cláusula de revogação genérica (RN-03)
 function validarClausulaRevogacao(texto: string): boolean {
@@ -59,7 +82,7 @@ export async function POST(request: NextRequest) {
     contexto_politico?: string;
     parecer_juridico?: unknown;
     similares?: unknown[];
-    instrucoes_revisao?: string; // para o loop de retrabalho
+    instrucoes_revisao?: string;
   };
 
   try {
@@ -73,33 +96,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Campo "tema" é obrigatório' }, { status: 400 });
   }
 
-  const userPrompt = `DIRETRIZES DO PL:
-Tema: ${tema}
-${descricao ? `Descrição: ${descricao}` : ''}
-${contexto_politico ? `Contexto político: ${contexto_politico}` : ''}
-${parecer_juridico ? `Parecer jurídico (Etapa 2): ${JSON.stringify(parecer_juridico)}` : ''}
-${similares?.length ? `Similares considerados (Etapa 1): ${JSON.stringify(similares)}` : ''}
-${instrucoes_revisao ? `\nINSTRUÇÕES DE REVISÃO DA ASSESSORA: ${instrucoes_revisao}` : ''}
+  const userPrompt = `ATENÇÃO: O tema a seguir é ESPECÍFICO. Redigir sobre EXATAMENTE este assunto. Não substitua por outro tema.
 
-Autora: Vereadora Carol Dantas
-Câmara Municipal de Boa Vista, Estado de Roraima
+TEMA DO PROJETO DE LEI: ${tema}
+${descricao ? `\nDESCRIÇÃO DETALHADA:\n${descricao}` : ''}
+${contexto_politico ? `\nCONTEXTO POLÍTICO:\n${contexto_politico}` : ''}
+${parecer_juridico ? `\nPARECER JURÍDICO (Etapa 2) — respeitar restrições aqui indicadas:\n${JSON.stringify(parecer_juridico, null, 2)}` : ''}
+${similares?.length ? `\nPLs SIMILARES IDENTIFICADOS (Etapa 1) — evitar duplicidade:\n${JSON.stringify(similares, null, 2)}` : ''}
+${instrucoes_revisao ? `\nINSTRUÇÕES DE REVISÃO DA ASSESSORA (prioridade máxima):\n${instrucoes_revisao}` : ''}
 
-Retorne SOMENTE JSON válido:
+IMPORTANTE:
+1. Gere PELO MENOS 5 artigos substantivos (não apenas Art. 1 e vigência)
+2. Inclua definições, obrigações, penalidades, prazos e vigência
+3. A justificativa deve ter NO MÍNIMO 3 parágrafos com fundamentação real
+4. TUDO deve ser 100% sobre "${tema}" — nada sobre outros assuntos
+
+Retorne SOMENTE JSON válido no seguinte formato:
 {
-  "epigrafe": "PROJETO DE LEI Nº ___, DE ___ DE [MÊS] DE [ANO]",
-  "ementa": "string — resumo conciso do objeto",
+  "epigrafe": "PROJETO DE LEI Nº ___, DE ___ DE MARÇO DE 2026",
+  "ementa": "string — resumo conciso do objeto da lei",
   "preambulo": "A CÂMARA MUNICIPAL DE BOA VISTA, Estado de Roraima, aprova:",
   "artigos": [
     {
       "numero": 1,
       "texto": "string — texto completo do artigo",
-      "paragrafos": ["string — §1º ...", "string — §2º ..."],
-      "incisos": ["string — I - ...", "string — II - ..."]
+      "paragrafos": ["string — § 1º texto...", "string — § 2º texto..."],
+      "incisos": ["string — I - texto...", "string — II - texto..."]
     }
   ],
-  "clausula_vigencia": "string — ex: Esta Lei entra em vigor na data de sua publicação.",
-  "clausula_revogacao": "string | null — APENAS se houver leis a revogar. Deve ser ESPECÍFICA (ex: 'Revogam-se o art. 5º da Lei Municipal nº 123/2020'). NUNCA use 'revogam-se as disposições em contrário'.",
-  "justificativa": "string — documento separado: contextualização, fundamentação, impacto social esperado"
+  "clausula_vigencia": "string",
+  "clausula_revogacao": "string | null",
+  "justificativa": "string — documento extenso com 3+ parágrafos"
 }`;
 
   try {
@@ -108,8 +135,8 @@ Retorne SOMENTE JSON válido:
       model: 'gemini-2.5-flash',
       systemInstruction: SYSTEM_PROMPT_REDATORA,
       generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 4096,
+        temperature: 0.6,
+        maxOutputTokens: 16384,
         responseMimeType: 'application/json',
       },
     });
@@ -132,17 +159,15 @@ Retorne SOMENTE JSON válido:
     // Validação RN-03: bloqueia cláusula de revogação genérica
     const clausulaRevogacao = parsed.clausula_revogacao as string | null;
     if (clausulaRevogacao && !validarClausulaRevogacao(clausulaRevogacao)) {
-      console.error('[pls/redigir] RN-03 violada: cláusula de revogação genérica detectada');
-      // Remove a cláusula inválida e marca para correção
       parsed.clausula_revogacao = null;
-      parsed._aviso_rn03 = 'Cláusula de revogação genérica removida automaticamente (violação da LC 95/1998). Se houver leis a revogar, especifique-as na revisão.';
+      parsed._aviso_rn03 = 'Cláusula de revogação genérica removida (LC 95/1998). Se houver leis a revogar, especifique na revisão.';
     }
 
     // Verificação de artigos mínimos
     const artigos = parsed.artigos as unknown[];
     if (!artigos || artigos.length < 2) {
       return NextResponse.json(
-        { error: 'PL gerado incompleto: mínimo de 2 artigos necessários (objeto + vigência)' },
+        { error: 'PL gerado incompleto: mínimo de 2 artigos. Tente novamente ou forneça mais detalhes sobre o tema.' },
         { status: 422 }
       );
     }
