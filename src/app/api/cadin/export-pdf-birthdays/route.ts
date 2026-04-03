@@ -3,6 +3,7 @@
 // Usa cadin_pdf_cache (7 dias) para evitar regeneração.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
@@ -173,11 +174,11 @@ function buildBirthdayPDF(persons: BdPerson[], month: number, day: number | null
       const sphereColor = SPHERE_COLOR[p.org_sphere ?? ''] ?? C.gray;
 
       const lines: string[] = [];
-      if (p.phone)     lines.push(`📱 ${p.phone}`);
-      if (p.org_phone && p.org_phone !== p.phone) lines.push(`☎️ ${p.org_phone}`);
-      if (p.email)     lines.push(`✉️ ${p.email}`);
-      if (p.org_email && p.org_email !== p.email)  lines.push(`✉️ ${p.org_email}`);
-      if (p.org_address) lines.push(`📍 ${p.org_address}`);
+      if (p.phone)     lines.push(`Tel: ${p.phone}`);
+      if (p.org_phone && p.org_phone !== p.phone) lines.push(`Org: ${p.org_phone}`);
+      if (p.email)     lines.push(p.email);
+      if (p.org_email && p.org_email !== p.email)  lines.push(p.org_email);
+      if (p.org_address) lines.push(p.org_address);
 
       const cardH = Math.max(68, 14 + 13 + 12 + (lines.length > 0 ? Math.ceil(lines.length / 2) * 13 + 4 : 0) + 12);
 
@@ -207,7 +208,7 @@ function buildBirthdayPDF(persons: BdPerson[], month: number, day: number | null
       // Data de aniversário (destaque)
       const bdDisplay = p.birthday_display ?? `dia ${p.birthday_day}`;
       doc.fillColor(C.pink).font('Helvetica-Bold').fontSize(9).text(
-        `🎂 ${bdDisplay}`, A4_W - MARGIN - 60, y + 10, { width: 60, align: 'right' },
+        bdDisplay, A4_W - MARGIN - 60, y + 10, { width: 60, align: 'right' },
       );
 
       // Nome
@@ -277,6 +278,9 @@ function buildBdHash(month: number, day: number | null): string {
 // ── Route Handler ─────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const { searchParams } = new URL(req.url);
   const monthParam = searchParams.get('month');
   const dayParam   = searchParams.get('day');

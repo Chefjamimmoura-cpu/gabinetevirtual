@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 // ── Lazy singletons (não instanciar no top-level — Next.js avalia durante build) ──
 function getSupabase() {
@@ -144,6 +145,9 @@ async function salvarLog(payload: {
 
 // ── Handler principal ─────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const authCheck = await requireAuth(req);
+  if (authCheck.error) return authCheck.error;
+
   try {
     const body = await req.json();
     const { person_ids, context } = body as {

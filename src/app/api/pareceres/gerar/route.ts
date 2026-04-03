@@ -15,6 +15,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 import { SYSTEM_PROMPT } from '@/lib/parecer/prompts';
+import { createRateLimiter } from '@/lib/rate-limit';
+
+const parecerLimiter = createRateLimiter({ windowMs: 60_000, max: 5 });
 import { buildMateriaContext, fetchCommissionDocContents } from '@/lib/parecer/build-context';
 import { fetchMateria, enrichMateria, lightEnrichMateria, type SaplMateria } from '@/lib/sapl/client';
 import fs from 'fs';
@@ -79,6 +82,9 @@ function loadRagBase(): string {
 }
 
 export async function POST(req: NextRequest) {
+  const rateLimited = parecerLimiter.check(req);
+  if (rateLimited) return rateLimited;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'GEMINI_API_KEY não configurada no servidor' }, { status: 500 });

@@ -27,6 +27,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createRateLimiter } from '@/lib/rate-limit';
+
+const webhookLimiter = createRateLimiter({ windowMs: 60_000, max: 30 });
 
 // ──────────────────────────────────────────────────────────────
 // COMANDOS DA EQUIPE DE CAMPO
@@ -595,6 +598,25 @@ async function salvarMensagem(sessionId: string, role: 'user' | 'assistant', con
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Rate limiting
+  const rateLimited = webhookLimiter.check(req);
+  if (rateLimited) return rateLimited;
+
+  // Validação de autenticação do webhook Evolution API
+  const webhookSecret = process.env.EVOLUTION_WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const authHeader = req.headers.get('authorization');
+    if (authHeader !== `Bearer ${webhookSecret}`) {
+      return NextResponse.json({ ok: false, error: 'Não autorizado' }, { status: 401 });
+    }
+  } else {
+    // Fail closed: sem secret configurado, rejeita chamadas em produção
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[ALIA] EVOLUTION_WEBHOOK_SECRET não configurado em produção');
+      return NextResponse.json({ ok: false, error: 'Webhook não configurado' }, { status: 500 });
+    }
+  }
+
   let body: EvolutionMessage;
   try {
     body = await req.json();

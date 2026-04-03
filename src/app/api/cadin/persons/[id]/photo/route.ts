@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -10,9 +11,12 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
  * Faz upload para o bucket 'cadin-photos', e salva a URL pública em cadin_persons.photo_url.
  */
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth(request);
+  if (auth.error) return auth.error;
+
   try {
     const { id } = await params;
     if (!id) return NextResponse.json({ error: 'ID faltante' }, { status: 400 });

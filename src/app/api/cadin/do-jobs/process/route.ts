@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { extractFromUrl } from '@/lib/do/pdf-extractor';
+import { requireAuth, isCronAuth } from '@/lib/supabase/auth-guard';
 
 const GABINETE_ID = process.env.GABINETE_ID!;
 
@@ -17,21 +18,22 @@ function db() {
   );
 }
 
-const GEMINI_PROMPT = `Você é um extrator de nomeações de Diários Oficiais brasileiros.
+const GEMINI_PROMPT = `Você é um extrator inteligente de nomeações de Diários Oficiais brasileiros focado no CADIN (Cadastro de Autoridades).
+Sua missão é extrair APENAS nomeações, exonerações e designações de ALTO e MÉDIO ESCALÃO (ex: Secretários, Diretores, Comandantes, Chefes de Setor, Presidentes, Procuradores, Superintendentes, Gerentes, Assessores Especiais).
+IGNORE completamente cargos operacionais e de baixo escalão (ex: Assistente, Auxiliar, Motorista, Vigia, Técnico Administrativo, Professor base, Estagiário) a menos que ocupem função de chefia/direção.
 
-Analise os trechos abaixo e extraia TODAS as nomeações, exonerações e designações.
-
-Para cada registro, retorne JSON:
+Para cada autoridade identificada, retorne um objeto JSON:
 {
   "nome": "Nome completo",
   "cargo": "Cargo exato",
-  "orgao": "Órgão ou secretaria",
+  "orgao": "Órgão, secretaria ou departamento",
+  "orgao_esfera": "estadual" | "municipal" | "federal" | null,
   "tipo": "nomeacao" | "exoneracao" | "designacao",
   "data_portaria": "YYYY-MM-DD ou null",
-  "trecho": "Trecho literal (máx 300 chars)"
+  "trecho": "Trecho literal ou resumo (máx 300 chars)"
 }
 
-Retorne APENAS um array JSON válido. Se não houver nenhuma, retorne [].
+Retorne APENAS um array JSON válido. Se não houver nomeações de alto/médio escalão, retorne [].
 
 TRECHOS DO D.O.:`;
 
@@ -39,6 +41,7 @@ interface ApointmentExtract {
   nome: string;
   cargo: string;
   orgao?: string;
+  orgao_esfera?: string | null;
   tipo: 'nomeacao' | 'exoneracao' | 'designacao';
   data_portaria: string | null;
   trecho: string;
@@ -85,17 +88,19 @@ async function processJobById(jobId: string): Promise<{ inserted: number }> {
     for (const item of items) {
       if (!item.nome || !item.cargo) continue;
 
+      // Smart Triage: Busca nome completo usando textSearch com similaridade/ilike
+      // Melhor que o obsoleto .split(' ')[0] que gerava falsos positivos
       const { data: persons } = await supabase
         .from('cadin_persons')
-        .select('id')
+        .select('id, full_name')
         .eq('gabinete_id', GABINETE_ID)
-        .ilike('name', `%${item.nome.split(' ')[0]}%`)
+        .ilike('full_name', `%${item.nome.trim()}%`)
         .limit(1);
 
       const { data: orgs } = item.orgao
         ? await supabase
             .from('cadin_organizations')
-            .select('id')
+            .select('id, name')
             .eq('gabinete_id', GABINETE_ID)
             .ilike('name', `%${item.orgao.split(' ').slice(0, 3).join('%')}%`)
             .limit(1)
@@ -103,24 +108,35 @@ async function processJobById(jobId: string): Promise<{ inserted: number }> {
 
       const personId = persons?.[0]?.id ?? null;
       const orgId    = orgs?.[0]?.id ?? null;
-      if (!personId && !orgId) continue;
+
+      // A inserção deve ir para pending_updates, não importando se a pessoa/orgao existe ou não
+      const suggestedChanges = {
+        full_name: item.nome,
+        title: item.cargo,
+        active: item.tipo !== 'exoneracao' ? 'true' : 'false',
+        organization_name: item.orgao || '',
+        sphere: item.orgao_esfera || '',
+        start_date: item.data_portaria || '',
+      };
 
       const { error } = await supabase
-        .from('cadin_appointments')
+        .from('cadin_pending_updates')
         .insert({
-          gabinete_id:     GABINETE_ID,
-          person_id:       personId,
-          organization_id: orgId,
-          title:           item.cargo,
-          active:          item.tipo !== 'exoneracao',
-          pending_review:  true,
-          do_source_url:   job.source_url,
-          do_raw_text:     item.trecho,
-          start_date:      item.data_portaria ?? null,
-          notes:           `Auto-importado do D.O. (${job.source}) — ${item.tipo}. Revisão obrigatória.`,
+          gabinete_id: GABINETE_ID,
+          person_id: personId, // Pode ser nulo se for Nova Autoridade
+          organization_id: orgId, // Pode ser nulo se for Novo Órgão
+          update_type: item.tipo,
+          extracted_text: item.trecho,
+          source_url: job.source_url,
+          source_date: item.data_portaria,
+          gemini_summary: `${item.tipo.toUpperCase()}: ${item.nome} -> ${item.cargo} (${item.orgao || 'Sem Órgão'})`,
+          suggested_changes: suggestedChanges,
+          confidence: 0.9,
+          status: 'pendente'
         });
 
       if (!error) inserted++;
+      else console.error('Erro ao inserir pending_update:', error);
     }
 
     await supabase
@@ -139,10 +155,9 @@ async function processJobById(jobId: string): Promise<{ inserted: number }> {
 }
 
 export async function POST(req: NextRequest) {
-  const auth   = req.headers.get('authorization');
-  const secret = process.env.CRON_SECRET;
-  if (secret && auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  if (!isCronAuth(req)) {
+    const auth = await requireAuth(req);
+    if (auth.error) return auth.error;
   }
 
   let body: { job_ids?: string[]; job_id?: string };

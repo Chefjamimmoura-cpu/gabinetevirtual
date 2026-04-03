@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth, isCronAuth } from '@/lib/supabase/auth-guard';
 
 const GABINETE_ID = process.env.GABINETE_ID!;
 
@@ -14,6 +15,9 @@ function db() {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const { searchParams } = new URL(req.url);
   const status = searchParams.get('status'); // pending | processing | done | error | null (todos)
   const limit  = Math.min(50, parseInt(searchParams.get('limit') ?? '20'));
@@ -34,10 +38,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth   = req.headers.get('authorization');
-  const secret = process.env.CRON_SECRET;
-  if (secret && auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  // Aceita: cron (Bearer CRON_SECRET) OU usuário autenticado
+  if (!isCronAuth(req)) {
+    const auth = await requireAuth(req);
+    if (auth.error) return auth.error;
   }
 
   let body: { source_url: string; source: string; edition_date?: string };

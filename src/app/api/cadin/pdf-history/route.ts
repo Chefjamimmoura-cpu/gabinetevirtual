@@ -1,8 +1,9 @@
 // GET /api/cadin/pdf-history
 // Retorna até 10 PDFs gerados recentemente, válidos dentro dos próximos 7 dias.
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 function getServiceSupabase() {
   return createClient(
@@ -11,7 +12,9 @@ function getServiceSupabase() {
   );
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
   const svc = getServiceSupabase();
 
   const { data, error } = await svc

@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 function supabase() {
   return createClient(
@@ -23,6 +24,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authCheck = await requireAuth(req);
+  if (authCheck.error) return authCheck.error;
+
   const db = supabase();
   const { id } = await params;
 
@@ -62,53 +66,107 @@ export async function PATCH(
 
     // ── Aprovar: aplicar suggested_changes ────────────────────────────────
     const changes = update.suggested_changes as Record<string, string> | null;
+    let targetPersonId = update.person_id;
+    let targetOrgId = update.organization_id;
+    const gabineteId = update.gabinete_id || process.env.GABINETE_ID!;
 
-    if (changes && update.person_id) {
-      const personFields: Record<string, string> = {};
-      const allowedPersonFields = ['full_name', 'phone', 'email', 'party', 'birthday', 'chefe_gabinete', 'nome_parlamentar'];
-      for (const [k, v] of Object.entries(changes)) {
-        if (allowedPersonFields.includes(k) && v) personFields[k] = v;
-      }
-
-      // Sincroniza notes se alterou birthday ou chefe_gabinete
-      if (personFields.birthday || personFields.chefe_gabinete) {
-        const { data: current } = await db
+    if (changes) {
+      // 1. Criar novo Person se não existir
+      if (!targetPersonId && changes.full_name) {
+        const { data: newPerson, error: pErr } = await db
           .from('cadin_persons')
-          .select('notes, birthday, chefe_gabinete, nome_parlamentar')
-          .eq('id', update.person_id)
+          .insert({ gabinete_id: gabineteId, full_name: changes.full_name })
+          .select('id')
           .single();
-
-        const bd  = personFields.birthday        ?? current?.birthday;
-        const cg  = personFields.chefe_gabinete  ?? current?.chefe_gabinete;
-        const npm = personFields.nome_parlamentar ?? current?.nome_parlamentar;
-        const noteParts: string[] = [];
-        if (bd)  noteParts.push(`Aniversário: ${bd}`);
-        if (npm) noteParts.push(`Nome parlamentar: ${npm}`);
-        if (cg)  noteParts.push(`Chefe de Gabinete: ${cg}`);
-        personFields.notes = noteParts.join('; ');
+        if (pErr) throw pErr;
+        targetPersonId = newPerson.id;
       }
 
-      if (Object.keys(personFields).length > 0) {
-        const { error } = await db
-          .from('cadin_persons')
-          .update(personFields)
-          .eq('id', update.person_id);
-        if (error) throw error;
-      }
-    }
+      // 2. Atualizar Person existente/recém-criado (Campos ALIA ou DO)
+      if (targetPersonId) {
+        const personFields: Record<string, string> = {};
+        const allowedPersonFields = ['full_name', 'phone', 'email', 'party', 'birthday', 'chefe_gabinete', 'nome_parlamentar'];
+        for (const [k, v] of Object.entries(changes)) {
+          if (allowedPersonFields.includes(k) && v) personFields[k] = v;
+        }
 
-    if (changes && update.organization_id) {
-      const orgFields: Record<string, string> = {};
-      const allowedOrgFields = ['name', 'acronym', 'type', 'sphere', 'phone', 'email', 'address'];
-      for (const [k, v] of Object.entries(changes)) {
-        if (allowedOrgFields.includes(k) && v) orgFields[k] = v;
+        if (personFields.birthday || personFields.chefe_gabinete) {
+          const { data: current } = await db
+            .from('cadin_persons')
+            .select('notes, birthday, chefe_gabinete, nome_parlamentar')
+            .eq('id', targetPersonId)
+            .single();
+
+          const bd  = personFields.birthday        ?? current?.birthday;
+          const cg  = personFields.chefe_gabinete  ?? current?.chefe_gabinete;
+          const npm = personFields.nome_parlamentar ?? current?.nome_parlamentar;
+          const noteParts: string[] = [];
+          if (bd)  noteParts.push(`Aniversário: ${bd}`);
+          if (npm) noteParts.push(`Nome parlamentar: ${npm}`);
+          if (cg)  noteParts.push(`Chefe de Gabinete: ${cg}`);
+          personFields.notes = noteParts.join('; ');
+        }
+
+        if (Object.keys(personFields).length > 0) {
+          const { error } = await db
+            .from('cadin_persons')
+            .update(personFields)
+            .eq('id', targetPersonId);
+          if (error) throw error;
+        }
       }
-      if (Object.keys(orgFields).length > 0) {
-        const { error } = await db
+
+      // 3. Criar novo Organization se não existir
+      if (!targetOrgId && changes.organization_name) {
+        const { data: newOrg, error: oErr } = await db
           .from('cadin_organizations')
-          .update(orgFields)
-          .eq('id', update.organization_id);
-        if (error) throw error;
+          .insert({ 
+            gabinete_id: gabineteId, 
+            name: changes.organization_name, 
+            sphere: changes.sphere || 'estadual' 
+          })
+          .select('id')
+          .single();
+        if (oErr) throw oErr;
+        targetOrgId = newOrg.id;
+      }
+
+      // 4. Atualizar Organization existente/recém-criado
+      if (targetOrgId) {
+        const orgFields: Record<string, string> = {};
+        const allowedOrgFields = ['name', 'organization_name', 'acronym', 'type', 'sphere', 'phone', 'email', 'address'];
+        for (const [k, v] of Object.entries(changes)) {
+          if (allowedOrgFields.includes(k) && v) {
+            orgFields[k === 'organization_name' ? 'name' : k] = v;
+          }
+        }
+        if (Object.keys(orgFields).length > 0) {
+          const { error } = await db
+            .from('cadin_organizations')
+            .update(orgFields)
+            .eq('id', targetOrgId);
+          if (error) throw error;
+        }
+      }
+
+      // 5. Injetar Appointment se vier do Diário Oficial (Monitoramento D.O.)
+      if (['nomeacao', 'exoneracao', 'designacao'].includes(update.update_type)) {
+        if (targetPersonId && targetOrgId) {
+          const { error: apptErr } = await db
+            .from('cadin_appointments')
+            .insert({
+              gabinete_id: gabineteId,
+              person_id: targetPersonId,
+              organization_id: targetOrgId,
+              title: changes.title || 'Cargo não especificado',
+              active: changes.active === 'true',
+              start_date: changes.start_date || null,
+              do_source_url: update.source_url,
+              do_raw_text: update.extracted_text,
+              notes: `Auto-aprovado via Monitoramento D.O. (${update.source_date || ''})`,
+            });
+          if (apptErr) throw apptErr;
+        }
       }
     }
 

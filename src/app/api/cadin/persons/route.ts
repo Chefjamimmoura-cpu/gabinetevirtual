@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const GABINETE_ID = process.env.GABINETE_ID!;
 
@@ -41,6 +42,9 @@ interface CreatePersonBody {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const db = supabase();
 
   let body: CreatePersonBody;
@@ -129,6 +133,9 @@ export async function POST(req: NextRequest) {
 // ─── GET — busca full-text ────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const db = supabase();
   const { searchParams } = new URL(req.url);
 

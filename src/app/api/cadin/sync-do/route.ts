@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth, isCronAuth } from '@/lib/supabase/auth-guard';
 
 const GABINETE_ID = process.env.GABINETE_ID!;
 const SELF_URL    = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
@@ -75,22 +76,11 @@ async function discoverEditions(date: Date): Promise<ScraperEdition[]> {
 }
 
 export async function POST(req: NextRequest) {
-  const auth   = req.headers.get('authorization');
-  const secret = process.env.CRON_SECRET;
-
-  // Aceita: cron com Bearer token OU chamada interna sem token
-  const isCron = secret && auth === `Bearer ${secret}`;
-  const isInternal = !secret; // sem secret configurado, permite tudo (dev)
-
-  if (!isCron && !isInternal) {
-    // Tenta auth de usuário para chamadas da UI
-    const supabaseUser = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
-    );
-    const { data: { user } } = await supabaseUser.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  // Aceita: cron (Bearer CRON_SECRET) OU usuário autenticado
+  // Fail closed: sem CRON_SECRET configurado = sem acesso via cron
+  if (!isCronAuth(req)) {
+    const authCheck = await requireAuth(req);
+    if (authCheck.error) return authCheck.error;
   }
 
   let targetDate = new Date();
@@ -140,7 +130,7 @@ export async function POST(req: NextRequest) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${secret ?? ''}`,
+      Authorization: `Bearer ${process.env.CRON_SECRET ?? ''}`,
     },
     body: JSON.stringify({ job_ids: jobIds }),
   }).catch(() => {
