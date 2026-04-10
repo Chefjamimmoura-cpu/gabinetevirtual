@@ -33,11 +33,14 @@ const URGENCY_EMOJI: Record<Urgency, string> = {
  * Compact layout: urgency emoji + bold title, detail, optional action URL.
  */
 function formatWhatsApp(alert: EvaluatedAlert): string {
-  const { event } = alert;
-  const emoji = URGENCY_EMOJI[event.urgency];
+  const event = alert.events[0];
+  if (!event) return alert.consolidation ?? '';
+  const emoji = URGENCY_EMOJI[alert.urgency];
   const lines: string[] = [
-    `${emoji} *${event.title}*`,
-    event.detail,
+    `${emoji} *${alert.consolidation ?? event.title}*`,
+    alert.events.length > 1
+      ? alert.events.map(e => `• ${e.title}`).join('\n')
+      : event.detail,
   ];
   if (event.action_url) lines.push(event.action_url);
   return lines.join('\n');
@@ -95,13 +98,10 @@ async function dispatchWhatsApp(
 
   for (const phone of phones) {
     try {
-      const ok = await sendWhatsAppMessage(phone, text);
-      if (ok) {
-        sent++;
-        await logDispatch(gabineteId, alert.event, 'whatsapp', phone, 1);
-      } else {
-        failed++;
-        console.warn(`[Dispatcher] WhatsApp send returned false for ${phone}`);
+      await sendWhatsAppMessage(phone, text);
+      sent++;
+      if (alert.events[0]) {
+        await logDispatch(gabineteId, alert.events[0], 'whatsapp', phone, alert.events.length);
       }
     } catch (err) {
       failed++;
@@ -123,7 +123,7 @@ async function dispatchDashboard(
   gabineteId: string,
 ): Promise<{ sent: number; failed: number }> {
   const body = formatDashboard(alert);
-  const { event } = alert;
+  const event = alert.events[0];
 
   // Derive per-recipient rows; if no explicit recipients, insert one generic row
   const recipients = alert.recipients.length > 0 ? alert.recipients : [null];
@@ -138,11 +138,11 @@ async function dispatchDashboard(
         .insert({
           gabinete_id: gabineteId,
           recipient_id: recipientId,
-          type: event.type,
-          urgency: event.urgency,
-          title: event.title,
+          type: event?.type ?? 'general',
+          urgency: alert.urgency,
+          title: alert.consolidation ?? event?.title ?? '',
           body,
-          action_url: event.action_url ?? null,
+          action_url: event?.action_url ?? null,
         });
 
       if (error) {
@@ -150,7 +150,7 @@ async function dispatchDashboard(
         console.error('[Dispatcher] Dashboard insert error:', error.message);
       } else {
         sent++;
-        await logDispatch(gabineteId, event, 'dashboard', recipientId ?? 'global', 1);
+        if (event) await logDispatch(gabineteId, event, 'dashboard', recipientId ?? 'global', alert.events.length);
       }
     } catch (err) {
       failed++;
@@ -162,9 +162,9 @@ async function dispatchDashboard(
 }
 
 function dispatchEmail(alert: EvaluatedAlert): { sent: number; failed: number } {
-  // Email digest is Phase 4 Task 6 scope — not yet implemented.
+  const event = alert.events[0];
   console.log(
-    `[Dispatcher] email dispatch not yet implemented (alert: ${alert.event.id}, title: "${alert.event.title}")`,
+    `[Dispatcher] email dispatch not yet implemented (alert: ${event?.id ?? 'unknown'}, title: "${alert.consolidation ?? event?.title ?? ''}")`,
   );
   return { sent: 0, failed: 0 };
 }
