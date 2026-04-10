@@ -21,6 +21,9 @@ import { parecerAgent }   from './agents/parecer.agent';
 import { ordemDiaAgent }  from './agents/ordem-dia.agent';
 import { generalAgent }   from './agents/general.agent';
 import { cadernoPdfAgent } from './agents/caderno-pdf.agent';
+import { emailAgent }      from './agents/email.agent';
+import { comissaoAgent }   from './agents/comissao.agent';
+import { crossmoduleAgent } from './agents/crossmodule.agent';
 
 // ── Gabinete config (hardcoded for now — will come from DB in multi-tenant) ───
 
@@ -47,6 +50,9 @@ const AGENT_REGISTRY: Record<string, AliaAgent> = {
   ordem_dia:  ordemDiaAgent,
   general:    generalAgent,
   caderno_pdf: cadernoPdfAgent,
+  email:       emailAgent,
+  comissao:    comissaoAgent,
+  crossmodule: crossmoduleAgent,
 };
 
 // ── Main export ───────────────────────────────────────────────────────────────

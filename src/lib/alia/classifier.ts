@@ -107,6 +107,18 @@ const KEYWORD_SIGNALS: KeywordSignal[] = [
     action: 'gerar_caderno',
     boost: 2,
   },
+  // Cross-module: explicit cross-data queries
+  {
+    keywords: [
+      'cruzar', 'cruzamento', 'relacionar', 'relação entre',
+      'quem tem indicação', 'autoridade e indicação',
+      'ofício e indicação', 'tudo sobre', 'resumo completo',
+      'visão geral', 'panorama',
+    ],
+    agent: 'crossmodule',
+    action: 'consultar',
+    boost: 3,
+  },
 ];
 
 // ── Page Context Mapping ──────────────────────────────────────────────────────
