@@ -61,6 +61,21 @@ export default function PlsNovaProposicao({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<WizardState>(ESTADO_INICIAL);
 
+  // ── Salvar rascunho ─────────────────────────────────────────────────────
+  const handleSalvarRascunho = useCallback(async () => {
+    const plId = (state.texto_gerado as Record<string, unknown>)?._pl_id;
+    if (!plId) { alert('Gere o texto do PL primeiro (Etapa 4) para salvar o rascunho.'); return; }
+    try {
+      const res = await fetch('/api/pls/aprovar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pl_id: plId, status: 'RASCUNHO' }),
+      });
+      if (res.ok) { alert('Rascunho salvo com sucesso!'); }
+      else { const d = await res.json(); alert(d.error || 'Erro ao salvar rascunho.'); }
+    } catch { alert('Erro de rede ao salvar rascunho.'); }
+  }, [state.texto_gerado]);
+
   // ── Download DOCX direto no browser ─────────────────────────────────────
   const downloadDocx = useCallback(async () => {
     if (!state.texto_editado) return;
@@ -196,10 +211,31 @@ export default function PlsNovaProposicao({ onBack }: { onBack: () => void }) {
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
 
+  const handleVoltarParaLista = useCallback(async () => {
+    const plId = (state.texto_gerado as Record<string, unknown>)?._pl_id;
+    if (plId) {
+      try {
+        await fetch('/api/pls/aprovar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pl_id: plId, status: 'RASCUNHO' }),
+        });
+      } catch { /* silencioso */ }
+    }
+    onBack();
+  }, [state.texto_gerado, onBack]);
+
   return (
     <div className={styles.novaContainer}>
       {/* Painel esquerdo: stepper */}
       <div className={styles.stepperPanel}>
+        <button onClick={handleVoltarParaLista} style={{
+          display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: '1px solid #d1d5db',
+          color: '#6b7280', padding: '7px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 500,
+          fontSize: '13px', marginBottom: '16px', width: '100%', justifyContent: 'center',
+        }}>
+          <ChevronLeft size={14} /> Voltar para Projetos de Lei
+        </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', color: '#4f46e5', fontWeight: 700 }}>
           <Bot size={20} /> Workflow ALIA Legislativo
         </div>
@@ -290,6 +326,7 @@ export default function PlsNovaProposicao({ onBack }: { onBack: () => void }) {
             onConfirmar={() => updateState({ pesquisa_confirmada: true })}
             onAvancar={() => { setEtapa(2); setError(null); }}
             onVoltar={() => setEtapa(0)}
+            onSalvarRascunho={handleSalvarRascunho}
           >
             {state.pesquisa_similares && (
               <ResultadoPesquisa data={state.pesquisa_similares} />
@@ -307,6 +344,7 @@ export default function PlsNovaProposicao({ onBack }: { onBack: () => void }) {
             onConfirmar={() => updateState({ juridica_confirmada: true })}
             onAvancar={() => { setEtapa(3); setError(null); }}
             onVoltar={() => setEtapa(1)}
+            onSalvarRascunho={handleSalvarRascunho}
           >
             {state.parecer_juridico && (
               <ResultadoJuridico data={state.parecer_juridico} />
@@ -324,6 +362,7 @@ export default function PlsNovaProposicao({ onBack }: { onBack: () => void }) {
             onConfirmar={() => updateState({ acessorios_confirmados: true })}
             onAvancar={() => { setEtapa(4); setError(null); }}
             onVoltar={() => setEtapa(2)}
+            onSalvarRascunho={handleSalvarRascunho}
           >
             {state.pls_acessorios && (
               <ResultadoAcessorios data={state.pls_acessorios} />
@@ -341,6 +380,7 @@ export default function PlsNovaProposicao({ onBack }: { onBack: () => void }) {
             onConfirmar={() => updateState({ redacao_confirmada: true })}
             onAvancar={() => { setEtapa(5); setError(null); }}
             onVoltar={() => setEtapa(3)}
+            onSalvarRascunho={handleSalvarRascunho}
             labelConsultar={state.texto_gerado ? 'Regenerar com ALIA' : 'Gerar texto do PL'}
           >
             {state.texto_gerado && (
@@ -480,13 +520,14 @@ export default function PlsNovaProposicao({ onBack }: { onBack: () => void }) {
 
 function EtapaContainer({
   numero, titulo, icone, loading, consultado, confirmado,
-  onConsultar, onConfirmar, onAvancar, onVoltar,
+  onConsultar, onConfirmar, onAvancar, onVoltar, onSalvarRascunho,
   labelConsultar = 'Consultar ALIA', children
 }: {
   numero: number; titulo: string; icone: React.ReactNode;
   loading: boolean; consultado: boolean; confirmado: boolean;
   onConsultar: () => void; onConfirmar: () => void;
   onAvancar: () => void; onVoltar: () => void;
+  onSalvarRascunho?: () => void;
   labelConsultar?: string;
   children?: React.ReactNode;
 }) {
@@ -538,9 +579,11 @@ function EtapaContainer({
             </button>
           )}
 
-          <button title="Salvar rascunho" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}>
-            <Save size={14} /> Salvar rascunho
-          </button>
+          {onSalvarRascunho && (
+            <button title="Salvar rascunho" onClick={onSalvarRascunho} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}>
+              <Save size={14} /> Salvar rascunho
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -10,6 +10,7 @@ export interface AgentContext {
   memories: AliaMemory[];
   ragContext?: string;
   crossModuleData?: Record<string, unknown>;
+  history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>;
   gabineteId: string;
   sessionId: string;
   channel: string;

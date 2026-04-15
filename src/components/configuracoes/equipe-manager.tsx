@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { ROLE_LABELS, ROLE_DESCRIPTIONS } from '@/lib/permissions';
 import { Loader2, Trash2, ShieldAlert, KeyRound, UserPlus, X } from 'lucide-react';
+import { PasswordInput } from '@/components/ui/password-input';
 import styles from './equipe-manager.module.css';
 
 interface Profile {
@@ -157,14 +159,14 @@ export default function EquipeManager() {
     return <div className={styles.container}><Loader2 className="animate-spin" size={24} /> Carregando equipe...</div>;
   }
 
-  const isAdmin = currentUserRole === 'admin' || currentUserRole === 'vereador';
+  const isAdmin = currentUserRole === 'admin' || currentUserRole === 'vereador' || currentUserRole === 'superadmin';
 
   return (
     <div className={styles.container}>
       {!isAdmin && (
         <div style={{ padding: '1rem', background: '#fff3cd', color: '#856404', borderRadius: '4px', display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '1rem' }}>
           <ShieldAlert size={18} />
-          Você é um <b>Assessor</b>. Apenas o Administrador pode modificar os acessos da equipe.
+          Você é um(a) <b>{ROLE_LABELS[currentUserRole] || 'Assessor(a)'}</b>. Apenas o(a) Assessor(a) Administrativo pode modificar os acessos da equipe.
         </div>
       )}
 
@@ -219,9 +221,9 @@ export default function EquipeManager() {
                       disabled={!isAdmin || actionLoading === profile.id}
                       onChange={(e) => handleRoleChange(profile.id, e.target.value)}
                     >
-                      <option value="assessor">Assessor (Leitura/Escrita)</option>
-                      <option value="admin">Administrador (Gestão)</option>
-                      <option value="vereador">Vereador(a) (Máxima)</option>
+                      <option value="assessor">{ROLE_LABELS.assessor} — {ROLE_DESCRIPTIONS.assessor}</option>
+                      <option value="admin">{ROLE_LABELS.admin} — {ROLE_DESCRIPTIONS.admin}</option>
+                      <option value="vereador">{ROLE_LABELS.vereador} — {ROLE_DESCRIPTIONS.vereador}</option>
                     </select>
                   </td>
                   <td>
@@ -272,13 +274,13 @@ export default function EquipeManager() {
               </div>
               <div className={styles.formGroup}>
                 <label>Senha Provisória</label>
-                <input required type="password" minLength={6} value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} placeholder="Mínimo 6 caracteres" />
+                <PasswordInput required minLength={6} value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} placeholder="Mínimo 6 caracteres" />
               </div>
               <div className={styles.formGroup}>
                 <label>Permissão</label>
                 <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
-                  <option value="assessor">Assessor (Leitura/Escrita)</option>
-                  <option value="admin">Administrador (Gestão Total)</option>
+                  <option value="assessor">{ROLE_LABELS.assessor}</option>
+                  <option value="admin">{ROLE_LABELS.admin}</option>
                 </select>
               </div>
               <button type="submit" className={styles.submitBtn} disabled={actionLoading === 'create'}>

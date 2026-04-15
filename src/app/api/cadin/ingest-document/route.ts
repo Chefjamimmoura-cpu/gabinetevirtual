@@ -1,14 +1,18 @@
 // src/app/api/cadin/ingest-document/route.ts
 // POST — Triggers bulk ingestion of an authority document (PDF/DOCX).
 // Body: { fileUrl: string, filename: string, esfera?: string }
-// Auth: NextAuth session required
+// Auth: requireAuth Supabase
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ingestDocument } from '@/lib/alia/cadin-ingestor';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const GABINETE_ID = process.env.GABINETE_ID!;
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   try {
     const body = await req.json();
     const { fileUrl, filename, esfera } = body;

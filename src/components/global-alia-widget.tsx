@@ -62,6 +62,42 @@ export default function GlobalAliaWidget() {
   const [hasDragged, setHasDragged] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
 
+  // Notificações Push
+  const [badgeCount, setBadgeCount] = useState(0);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    // Delay de 5s para não pesar no carregamento inicial da página
+    const timer = setTimeout(async () => {
+      // Se já estivermos na tela de pareceres, não precisamos avisar novamente da mesma forma invasiva
+      if (pathname.includes('/pareceres')) return;
+
+      try {
+        const res = await fetch('/api/pareceres/relatoria/fila?comissao=CASP&limit=20');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!mounted) return;
+        
+        // Conta quantas estão sem rascunho
+        const pendentes = (data.fila || []).filter((m: any) => m.status_relatoria === 'sem_rascunho').length;
+        if (pendentes > 0) {
+          setBadgeCount(pendentes);
+          setShowTooltip(true);
+          // Oculta o balão de push após 10 segundos, mas mantém o badge
+          setTimeout(() => { if (mounted) setShowTooltip(false); }, 10000);
+        }
+      } catch (err) {
+        // Silencioso
+      }
+    }, 5000);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, [pathname]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -248,6 +284,67 @@ export default function GlobalAliaWidget() {
           onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
           onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
         >
+          {/* Tooltip de Push Notification */}
+          {showTooltip && badgeCount > 0 && (
+            <div style={{
+              position: 'absolute',
+              bottom: '70px',
+              right: '0',
+              background: '#fff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              width: '240px',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+              animation: 'fade-in-up 0.4s ease-out forwards',
+              fontFamily: '"Inter", sans-serif',
+              pointerEvents: 'none', // Não bloqueia cliques
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '1.2rem' }}>🚨</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1c4076' }}>ALIA Alerta</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: '#475569', lineHeight: 1.4 }}>
+                Vereadora, existem <strong>{badgeCount} matérias</strong> na fila de relatoria aguardando o seu parecer.
+              </p>
+              {/* Seta do tooltip */}
+              <div style={{
+                position: 'absolute',
+                bottom: '-6px',
+                right: '24px',
+                width: '12px',
+                height: '12px',
+                background: '#fff',
+                borderRight: '1px solid #e2e8f0',
+                borderBottom: '1px solid #e2e8f0',
+                transform: 'rotate(45deg)',
+              }} />
+            </div>
+          )}
+
+          {/* Badge de contagem */}
+          {badgeCount > 0 && (
+            <div style={{
+              position: 'absolute',
+              top: '-4px',
+              right: '-4px',
+              background: '#ef4444',
+              color: 'white',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              width: '20px',
+              height: '20px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+              border: '2px solid #fff'
+            }}>
+              {badgeCount > 9 ? '9+' : badgeCount}
+            </div>
+          )}
+
           <Bot size={32} />
         </button>
       )}

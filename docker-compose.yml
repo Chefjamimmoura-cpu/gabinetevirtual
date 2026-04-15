@@ -1,10 +1,10 @@
 version: '3.8'
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Gabinete Carol — Hub Next.js
+# GV — Gabinete Virtual · Hub Next.js
 #
-# Este compose gerencia APENAS o gabinete-carol.
-# O cmbv-parecer continua gerenciado pelo seu próprio compose em ../cmbv-parecer/.
+# Este compose gerencia APENAS o gabinete-virtual.
+# O cmbv-parecer continua gerenciado pelo seu próprio compose em /root/cmbv-parecer/.
 #
 # Comunicação interna com cmbv-parecer:
 #   Ambos os serviços compartilham a rede externa "proxy" do Traefik.
@@ -12,14 +12,14 @@ version: '3.8'
 # ──────────────────────────────────────────────────────────────────────────────
 
 services:
-  gabinete-carol:
+  gabinete-virtual:
     build:
       context: .
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-    container_name: gabinete-carol
+    container_name: gabinete-virtual
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -30,29 +30,42 @@ services:
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       # Gemini IA
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      # Evolution API (WhatsApp — CIa)
+      # Evolution API (WhatsApp — ALIA)
       - EVOLUTION_API_URL=${EVOLUTION_API_URL}
       - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
       - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE}
       # cmbv-parecer acessível internamente pelo nome do container
       - CMBV_PARECER_INTERNAL_URL=http://cmbv-parecer:4000
-      # Sync SAPL — Mirroring Passivo (V3-F1)
+      # Sync SAPL — Mirroring Passivo
       - SYNC_SECRET=${SYNC_SECRET}
       - GABINETE_ID=${GABINETE_ID:-f25299db-1c33-45b9-830f-82f6d2d666ef}
-      # Importação Fala Cidadão (V4-F2)
+      # Importação Fala Cidadão
       - FALA_CIDADAO_API_URL=${FALA_CIDADAO_API_URL}
       - FALA_CIDADAO_APP_KEY=${FALA_CIDADAO_APP_KEY}
       - FALA_CIDADAO_LOGIN=${FALA_CIDADAO_LOGIN}
       - FALA_CIDADAO_PASSWORD=${FALA_CIDADAO_PASSWORD}
       - NEXTAUTH_URL=${NEXTAUTH_URL}
+      # Groq API (Transcrição de Sessões)
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      # Google Calendar
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      # YouTube Data API v3
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      # Cron + ALIA
+      - CRON_SECRET=${CRON_SECRET}
+      - ALIA_NOTIFY_NUMBERS=${ALIA_NOTIFY_NUMBERS}
+    volumes:
+      - ./youtube-cookies.txt:/app/youtube-cookies.txt
     networks:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gabinete-carol.rule=Host(`gabinete.wonetechnology.cloud`)"
-      - "traefik.http.routers.gabinete-carol.entrypoints=websecure"
-      - "traefik.http.routers.gabinete-carol.tls.certresolver=letsencrypt"
-      - "traefik.http.services.gabinete-carol.loadbalancer.server.port=3000"
+      - "traefik.http.routers.gabinete-virtual.rule=Host(`gabinete.wonetechnology.cloud`)"
+      - "traefik.http.routers.gabinete-virtual.entrypoints=websecure"
+      - "traefik.http.routers.gabinete-virtual.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gabinete-virtual.loadbalancer.server.port=3000"
       - "traefik.docker.network=proxy"
 
 networks:

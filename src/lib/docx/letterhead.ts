@@ -16,12 +16,12 @@ import {
 
 // ── Configuração visual ────────────────────────────────────────────────
 
-const HEADER_COLOR = '555555';
-const FOOTER_COLOR = '555555';
+const HEADER_COLOR = '000000'; // Alterado para preto rígido institucional
+const FOOTER_COLOR = '333333';
 const FONT = 'Times New Roman';
 
-/** Tamanho em half-points (docx). 16 = 8pt, 20 = 10pt */
-const HEADER_SIZE = 16; // 8pt
+/** Tamanho em half-points (docx). 16 = 8pt, 20 = 10pt, 22 = 11pt */
+const HEADER_SIZE = 20; // 10pt (anteriormente era 8pt, muito pequeno)
 const FOOTER_SIZE = 20; // 10pt
 const FOOTER_SIZE_SMALL = 18; // 9pt
 

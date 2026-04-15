@@ -106,7 +106,7 @@ async function fetchSummary(): Promise<DashboardSummary> {
       .order('data_inicio', { ascending: true }),
 
     db.from('sapl_sessoes_cache')
-      .select('data_sessao, numero')
+      .select('id, data_sessao, numero')
       .not('upload_pauta', 'is', null)
       .order('data_sessao', { ascending: false })
       .limit(5),
@@ -144,7 +144,7 @@ async function fetchSummary(): Promise<DashboardSummary> {
 
   let proximaSessao: string | null = null;
   if (sessoes.length > 0) {
-    const s = sessoes[0] as { data_sessao: string; numero: number };
+    const s = sessoes[0] as { id: number; data_sessao: string; numero: number };
     const d = new Date(`${s.data_sessao}T12:00:00`);
     proximaSessao = `Sessão ${s.numero} — ${d.toLocaleDateString('pt-BR')}`;
   }
@@ -187,10 +187,9 @@ async function fetchSummary(): Promise<DashboardSummary> {
     // Ordem do dia: usar a sessão mais recente (já carregada)
     let ordemDoDia: ParecerAlertas['ordem_do_dia'] = null;
     if (sessoes.length > 0) {
-      const s = sessoes[0] as { data_sessao: string; numero: number };
-      // Contar matérias nessa sessão (simplificado: usar count de matérias no cache)
+      const s = sessoes[0] as { id: number; data_sessao: string; numero: number };
       ordemDoDia = {
-        sessao_id: 0, // sem ID direto no cache, usar número como fallback
+        sessao_id: s.id,
         numero: String(s.numero),
         data: s.data_sessao,
         total_materias: alertMaterias.length,

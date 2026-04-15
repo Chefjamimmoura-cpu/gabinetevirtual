@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { upsertKnowledge, type KnowledgeChunk, type Dominio } from '@/lib/alia/rag';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const GABINETE_ID = process.env.GABINETE_ID!;
 
@@ -16,6 +17,9 @@ function db() {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const { searchParams } = new URL(req.url);
   const dominio = searchParams.get('dominio') as Dominio | null;
   const page    = Math.max(0, parseInt(searchParams.get('page')  ?? '0'));
@@ -37,6 +41,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   let body: { chunks?: KnowledgeChunk[] };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: 'JSON inválido' }, { status: 400 }); }
@@ -52,6 +59,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const id = new URL(req.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
 

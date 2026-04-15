@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function PareceresPage() {
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       {/* Componente Nativo do Pareceres substituiu o antigo iframe */}
       <PareceresDashboard />
     </div>

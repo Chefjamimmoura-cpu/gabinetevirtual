@@ -164,20 +164,23 @@ export default function GabineteForm() {
 
       <div className={styles.fieldGroup}>
         <label className={styles.label}>Comissões de Relatoria</label>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
+        <div className={styles.pillsContainer}>
           {TODAS_COMISSOES.map((sigla) => (
-            <label key={sigla} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#334155', background: '#f8fafc', padding: '6px 12px', borderRadius: '4px', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
+            <div key={sigla} style={{ position: 'relative', display: 'inline-flex' }}>
               <input
                 type="checkbox"
+                id={`comissao-${sigla}`}
+                className={styles.pillCheckbox}
                 checked={comissoes.includes(sigla)}
                 onChange={(e) => {
                   if (e.target.checked) setComissoes([...comissoes, sigla]);
                   else setComissoes(comissoes.filter(c => c !== sigla));
                 }}
-                style={{ accentColor: 'var(--primary-600)' }}
               />
-              {sigla}
-            </label>
+              <label htmlFor={`comissao-${sigla}`} className={styles.pillLabel}>
+                {sigla}
+              </label>
+            </div>
           ))}
         </div>
         <span className={styles.hint}>Selecione as comissões nas quais o parlamentar é relator ou presidente. O nome e a comissão preencherão automaticamente a guia Relatoria em Pareceres.</span>

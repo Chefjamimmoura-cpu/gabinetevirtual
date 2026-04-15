@@ -79,6 +79,90 @@ async function logDispatch(
   }
 }
 
+// ── Recipient resolution ──────────────────────────────────────────────────────
+// Reads from gabinete_whatsapp_recipients table and filters by event type permissions.
+// Fallback to ALIA_NOTIFY_NUMBERS env var if table is empty (backward compat).
+
+interface WhatsAppRecipient {
+  telefone: string;
+  nome: string;
+  event_types_allowed: string[] | null;
+  quiet_start: string | null;
+  quiet_end: string | null;
+  max_daily: number;
+  digest_enabled: boolean;
+}
+
+async function resolveWhatsAppRecipients(
+  gabineteId: string,
+  alert: EvaluatedAlert,
+): Promise<string[]> {
+  const { data, error } = await db()
+    .from('gabinete_whatsapp_recipients')
+    .select('telefone, nome, event_types_allowed, quiet_start, quiet_end, max_daily, digest_enabled')
+    .eq('gabinete_id', gabineteId)
+    .eq('enabled', true);
+
+  if (error) {
+    console.error('[Dispatcher] Failed to load recipients:', error.message);
+  }
+
+  const recipients = (data ?? []) as WhatsAppRecipient[];
+
+  // Fallback: if no recipients configured in DB, use env var
+  if (recipients.length === 0) {
+    const envNumbers = process.env.ALIA_NOTIFY_NUMBERS
+      ? process.env.ALIA_NOTIFY_NUMBERS.split(',').map((n) => n.trim()).filter(Boolean)
+      : [];
+    if (envNumbers.length === 0 && alert.recipients.length > 0) {
+      return alert.recipients;
+    }
+    return envNumbers;
+  }
+
+  // Filter by event type permissions
+  // Rule: if event_types_allowed is NULL or empty array → NO events (safer opt-in)
+  //       if event_types_allowed contains '*' → all events
+  //       else → only the listed types
+  const eventTypes = alert.events.map((e) => e.type);
+  const isDigest = alert.events.some((e) => e.type === 'email_digest');
+
+  const phones: string[] = [];
+  for (const r of recipients) {
+    // Digest has its own flag
+    if (isDigest && !r.digest_enabled) continue;
+
+    const allowed = r.event_types_allowed ?? [];
+    const receivesAll = allowed.includes('*');
+    const anyMatch = receivesAll || eventTypes.some((t) => allowed.includes(t));
+
+    if (!anyMatch) continue;
+
+    // Quiet hours: skip if within quiet window (unless urgency is 'critica')
+    if (alert.urgency !== 'critica' && isInQuietHours(r.quiet_start, r.quiet_end)) {
+      continue;
+    }
+
+    phones.push(r.telefone);
+  }
+
+  return phones;
+}
+
+function isInQuietHours(start: string | null, end: string | null): boolean {
+  if (!start || !end) return false;
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const current = `${hh}:${mm}`;
+
+  // Handle quiet window that crosses midnight (e.g., 22:00 → 07:00)
+  if (start > end) {
+    return current >= start || current <= end;
+  }
+  return current >= start && current <= end;
+}
+
 // ── Channel handlers ──────────────────────────────────────────────────────────
 
 async function dispatchWhatsApp(
@@ -86,12 +170,7 @@ async function dispatchWhatsApp(
   gabineteId: string,
 ): Promise<{ sent: number; failed: number }> {
   const text = formatWhatsApp(alert);
-
-  // Resolve recipient numbers: env var takes precedence, fallback to alert.recipients
-  const envNumbers = process.env.ALIA_NOTIFY_NUMBERS
-    ? process.env.ALIA_NOTIFY_NUMBERS.split(',').map((n) => n.trim()).filter(Boolean)
-    : [];
-  const phones = envNumbers.length > 0 ? envNumbers : alert.recipients;
+  const phones = await resolveWhatsAppRecipients(gabineteId, alert);
 
   let sent = 0;
   let failed = 0;
@@ -109,10 +188,8 @@ async function dispatchWhatsApp(
     }
   }
 
-  // Nothing to send if no phones configured — count as a single failure
   if (phones.length === 0) {
-    console.warn('[Dispatcher] WhatsApp: no recipient numbers configured (ALIA_NOTIFY_NUMBERS)');
-    failed++;
+    console.warn('[Dispatcher] WhatsApp: no eligible recipients for this alert');
   }
 
   return { sent, failed };

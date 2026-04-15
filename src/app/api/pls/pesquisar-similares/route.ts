@@ -155,7 +155,7 @@ Faça uma pesquisa legislativa COMPLETA. Retorne SOMENTE JSON válido no seguint
       systemInstruction: SYSTEM_PROMPT_PESQUISADORA,
       generationConfig: {
         temperature: 0.4,
-        maxOutputTokens: 3072,
+        maxOutputTokens: 8192,
         responseMimeType: 'application/json',
       },
     });

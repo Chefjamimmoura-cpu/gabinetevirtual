@@ -86,6 +86,25 @@ export default function AgendaPage() {
   const [isSyncDropdownOpen, setIsSyncDropdownOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [newAccountEmail, setNewAccountEmail] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/agenda/gcal/sync', { method: 'POST' });
+      if (res.ok) {
+        alert('Sincronização com Google Calendar iniciada com sucesso!');
+        window.location.reload();
+      } else {
+        alert('Falha na sincronização. Verifique as credenciais OAUTH.');
+      }
+    } catch (err) {
+      alert('Erro de conexão ao sincronizar com Google Calendar.');
+    } finally {
+      setIsSyncing(false);
+      setIsSyncDropdownOpen(false);
+    }
+  };
 
   // Fetch Logic
   React.useEffect(() => {
@@ -215,24 +234,59 @@ export default function AgendaPage() {
     setIsModalOpen(true);
   };
 
-  const handleSaveEvent = (e: React.FormEvent) => {
+  // Mapeia EventType (frontend) ↔ tipo (API Supabase)
+  const toApiTipo = (type: EventType): string => {
+    if (type === 'session') return 'sessao_plenaria';
+    if (type === 'personal') return 'agenda_externa';
+    return 'reuniao';
+  };
+
+  // Combina data 'YYYY-MM-DD' + hora 'HH:MM' em ISO string
+  const toDataInicio = (date: string, time?: string): string => {
+    const t = time && /^\d{2}:\d{2}$/.test(time) ? time : '00:00';
+    return `${date}T${t}:00`;
+  };
+
+  const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalData.title || !modalData.date) return;
 
+    const payload = {
+      titulo: modalData.title,
+      data_inicio: toDataInicio(modalData.date!, modalData.time),
+      tipo: toApiTipo((modalData.type as EventType) ?? 'institutional'),
+      local: modalData.location || undefined,
+    };
+
     if (editingEvent) {
-      // Update
-      setEvents(events.map(ev => ev.id === editingEvent.id ? { ...ev, ...modalData } as CalendarEvent : ev));
+      const res = await fetch(`/api/agenda/eventos/${editingEvent.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setEvents(events.map(ev =>
+          ev.id === editingEvent.id ? { ...ev, ...modalData } as CalendarEvent : ev
+        ));
+      }
     } else {
-      // Create
-      const newEvent: CalendarEvent = {
-        id: Math.random().toString(36).substr(2, 9),
-        date: modalData.date,
-        title: modalData.title,
-        type: modalData.type as EventType,
-        time: modalData.time,
-        location: modalData.location
-      };
-      setEvents([...events, newEvent]);
+      const res = await fetch('/api/agenda/eventos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        const newEvent: CalendarEvent = {
+          id: String(created.id),
+          date: modalData.date!,
+          title: modalData.title!,
+          type: (modalData.type as EventType) ?? 'institutional',
+          time: modalData.time,
+          location: modalData.location,
+        };
+        setEvents([...events, newEvent]);
+      }
     }
     setIsModalOpen(false);
   };
@@ -252,9 +306,12 @@ export default function AgendaPage() {
     }));
   };
 
-  const handleDeleteEvent = () => {
+  const handleDeleteEvent = async () => {
     if (editingEvent) {
-      setEvents(events.filter(ev => ev.id !== editingEvent.id));
+      const res = await fetch(`/api/agenda/eventos/${editingEvent.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setEvents(events.filter(ev => ev.id !== editingEvent.id));
+      }
       setIsModalOpen(false);
     }
   };
@@ -276,8 +333,15 @@ export default function AgendaPage() {
       setConfirmDialog({
         isOpen: true,
         message: `Deseja mover o compromisso "${parsedEvent.title}" para o dia ${dateStr}?`,
-        onConfirm: () => {
-          setEvents(prev => prev.map(ev => ev.id === parsedEvent.id ? { ...ev, date: targetDate } : ev));
+        onConfirm: async () => {
+          const res = await fetch(`/api/agenda/eventos/${parsedEvent.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data_inicio: toDataInicio(targetDate, parsedEvent.time) }),
+          });
+          if (res.ok) {
+            setEvents(prev => prev.map(ev => ev.id === parsedEvent.id ? { ...ev, date: targetDate } : ev));
+          }
           setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         }
       });
@@ -291,15 +355,22 @@ export default function AgendaPage() {
       const parsedEvent = JSON.parse(eventData) as CalendarEvent;
       const parsedHourPrefix = parsedEvent.time?.split(':')[0];
       const targetHourPrefix = targetHour.split(':')[0];
-      
+
       if (parsedEvent.date === targetDate && parsedHourPrefix === targetHourPrefix) return;
 
       const dateStr = format(parseISO(targetDate), 'dd/MM/yyyy');
       setConfirmDialog({
         isOpen: true,
         message: `Deseja reagendar o evento "${parsedEvent.title}" para as ${targetHour} do dia ${dateStr}?`,
-        onConfirm: () => {
-          setEvents(prev => prev.map(ev => ev.id === parsedEvent.id ? { ...ev, date: targetDate, time: targetHour } : ev));
+        onConfirm: async () => {
+          const res = await fetch(`/api/agenda/eventos/${parsedEvent.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data_inicio: toDataInicio(targetDate, targetHour) }),
+          });
+          if (res.ok) {
+            setEvents(prev => prev.map(ev => ev.id === parsedEvent.id ? { ...ev, date: targetDate, time: targetHour } : ev));
+          }
           setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         }
       });
@@ -639,6 +710,13 @@ export default function AgendaPage() {
                   <div className={styles.syncDropdownDivider} />
                   <div 
                     className={styles.syncConfigBtn}
+                    onClick={handleManualSync}
+                    style={{ color: '#10b981', borderBottom: '1px solid #f1f5f9' }}
+                  >
+                    <RefreshCw size={14} /> {isSyncing ? 'Sincronizando...' : 'Forçar Sincronização'}
+                  </div>
+                  <div 
+                    className={styles.syncConfigBtn}
                     onClick={() => { setIsSyncDropdownOpen(false); setIsConfigModalOpen(true); }}
                   >
                     <Settings size={14} /> Configurar Contas...
@@ -851,10 +929,7 @@ export default function AgendaPage() {
                     className={styles.btnSalvar} 
                     style={{ whiteSpace: 'nowrap' }}
                     onClick={() => {
-                      if(newAccountEmail) {
-                        setSyncAccounts([...syncAccounts, { id: Math.random().toString(), email: newAccountEmail, type: 'Google' }]);
-                        setNewAccountEmail('');
-                      }
+                      window.location.href = '/api/auth/google';
                     }}
                   >
                     Conectar Google

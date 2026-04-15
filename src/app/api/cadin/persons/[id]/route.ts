@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const GABINETE_ID = process.env.GABINETE_ID!;
 
 /**
  * PATCH /api/cadin/persons/[id]
@@ -53,11 +54,17 @@ export async function PATCH(
     if (nomeParlamentar !== undefined) personUpdate.nome_parlamentar = nomeParlamentar || null;
 
     // Mantém notes sincronizado para compatibilidade com código legado
+    // IDOR fix: filtrar por gabinete_id para prevenir cross-tenant leak
     const { data: currentPerson } = await supabase
       .from('cadin_persons')
       .select('notes, birthday, chefe_gabinete, nome_parlamentar')
       .eq('id', id)
+      .eq('gabinete_id', GABINETE_ID)
       .single();
+
+    if (!currentPerson) {
+      return NextResponse.json({ error: 'Registro não encontrado' }, { status: 404 });
+    }
 
     const existingNotes = currentPerson?.notes || '';
     const noteParts: string[] = [];
@@ -82,7 +89,8 @@ export async function PATCH(
       const { error } = await supabase
         .from('cadin_persons')
         .update(personUpdate)
-        .eq('id', id);
+        .eq('id', id)
+        .eq('gabinete_id', GABINETE_ID); // IDOR fix
       if (error) throw error;
     }
 
@@ -144,7 +152,19 @@ export async function DELETE(
     const { id } = await params;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Remove appointments primeiro (FK)
+    // IDOR fix: verificar se a pessoa pertence ao gabinete do chamador
+    const { data: pessoa } = await supabase
+      .from('cadin_persons')
+      .select('id')
+      .eq('id', id)
+      .eq('gabinete_id', GABINETE_ID)
+      .single();
+
+    if (!pessoa) {
+      return NextResponse.json({ error: 'Registro não encontrado' }, { status: 404 });
+    }
+
+    // Remove appointments primeiro (FK) — também filtrado por gabinete via join implícito em person_id
     const { error: apptErr } = await supabase
       .from('cadin_appointments')
       .delete()
@@ -155,7 +175,8 @@ export async function DELETE(
     const { error: personErr } = await supabase
       .from('cadin_persons')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('gabinete_id', GABINETE_ID); // IDOR fix
     if (personErr) throw personErr;
 
     return NextResponse.json({ success: true });
@@ -203,6 +224,7 @@ export async function GET(
         )
       `)
       .eq('id', id)
+      .eq('gabinete_id', GABINETE_ID) // IDOR fix
       .single();
 
     if (error) throw error;

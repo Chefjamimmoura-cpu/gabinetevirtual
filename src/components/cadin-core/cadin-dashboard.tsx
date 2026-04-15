@@ -41,10 +41,14 @@ interface BirthdayPerson {
   id: string;
   full_name: string;
   phone: string | null;
+  email: string | null;
   birthday_day: number;
   birthday_display: string | null;
   cargo: string | null;
   org_name: string | null;
+  org_phone: string | null;
+  org_email: string | null;
+  org_address: string | null;
 }
 
 interface PendingUpdate {
@@ -146,6 +150,11 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
 
   // ── Lista ──────────────────────────────────────────────────────────────────
   const [authorities, setAuthorities] = useState<CadinAuthority[]>([]);
+  const [filterType, setFilterType] = useState('all');
+  const [searchQ, setSearchQ] = useState('');
+  
+  // Modal State
+  const [infoModal, setInfoModal] = useState<{title: string, message: string, type?: 'success' | 'error' | 'info'} | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [esferaFilter, setEsferaFilter] = useState('todos');
@@ -169,6 +178,7 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
   const [bdPersons, setBdPersons] = useState<BirthdayPerson[]>([]);
   const [bdLoading, setBdLoading] = useState(false);
   const [bdStats, setBdStats] = useState<number[]>(Array(12).fill(0));
+  const [selectedAniversariantes, setSelectedAniversariantes] = useState<string[]>([]);
 
   // ── Edit drawer ─────────────────────────────────────────────────────────────
   const [editAuth, setEditAuth] = useState<CadinAuthority | null>(null);
@@ -584,10 +594,14 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
         if (res.ok) successCount++;
         else errorCount++;
       }
-      alert(`Importação concluída: ${successCount} salvos, ${errorCount} erros.`);
+      setInfoModal({
+        title: 'Importação Concluída',
+        message: `${successCount} registros salvos.\n${errorCount} erros ignorados.`,
+        type: 'success'
+      });
       loadAuthorities();
     } catch (err: any) {
-      alert("Erro ao importar CSV: " + err.message);
+      setInfoModal({ title: 'Erro de Importação', message: err.message, type: 'error' });
     } finally {
       setImportingCsv(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -599,12 +613,59 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
     try {
       const res = await fetch('/api/cadin/sync-do', { method: 'POST' });
       if (!res.ok) throw new Error('Falha ao acionar sincronização');
-      alert('Sincronização de Diários Oficiais iniciada com sucesso. A ALIA está vasculhando as publicações. Resultados aparecerão no Monitoramento em breve.');
+      setInfoModal({
+        title: 'Sincronização Iniciada',
+        message: 'A ALIA está vasculhando as publicações recentes em segundo plano.\nOs novos resultados aparecerão na guia de Monitoramento em breve.',
+        type: 'success'
+      });
     } catch (e: any) {
-      alert(e.message || 'Erro de rede ao acionar Sync');
+      setInfoModal({ title: 'Erro na Sincronização', message: e.message || 'Erro de rede ao acionar Sync.', type: 'error' });
     } finally {
       setSyncingDO(false);
     }
+  };
+
+  // ── Compartilhar Aniversariantes ───────────────────────────────────────────
+  const toggleAniversarianteSelection = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedAniversariantes(prev => 
+      prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
+    );
+  };
+
+  const handleShareAniversariantes = () => {
+    if (selectedAniversariantes.length === 0) return;
+    
+    const selectedPersons = bdPersons.filter(p => selectedAniversariantes.includes(p.id));
+    
+    let text = '*Aniversariantes do dia:*\n\n';
+    selectedPersons.forEach((p, index) => {
+      text += `🎂 *${p.full_name}*\n`;
+      if (p.cargo || p.org_name) {
+        text += `💼 `;
+        if (p.cargo) text += p.cargo;
+        if (p.cargo && p.org_name) text += ' - ';
+        if (p.org_name) text += p.org_name;
+        text += '\n';
+      }
+      if (p.phone) text += `📱 Contato pessoal: ${p.phone}\n`;
+      if (p.email) text += `📧 Email pessoal: ${p.email}\n`;
+      if (p.org_phone) text += `📞 Tel. Órgão: ${p.org_phone}\n`;
+      if (p.org_email) text += `📩 Email Órgão: ${p.org_email}\n`;
+      if (p.org_address) text += `📍 Endereço: ${p.org_address}\n`;
+      text += '\n';
+      
+      if (index < selectedPersons.length - 1) {
+        text += '━━━━━━━━━━━━━━━━━━━━━━\n\n';
+      }
+    });
+    text += '🎉 Parabéns!';
+
+    const encodedText = encodeURIComponent(text);
+    window.open(`https://api.whatsapp.com/send?text=${encodedText}`, '_blank');
+    
+    // Opcional: Desmarcar todos após compartilhar
+    setSelectedAniversariantes([]);
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -896,7 +957,7 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
                   <button 
                     key={i} 
                     className={`${styles.chartColumn} ${isActive ? styles.isActive : ''}`} 
-                    onClick={() => { setBdMonth(i + 1); setBdDay(null); }}
+                    onClick={() => { setBdMonth(i + 1); setBdDay(null); setSelectedAniversariantes([]); }}
                   >
                     <div className={styles.chartBarArea}>
                       <div className={styles.chartBar} style={{ height: heightPercent }}>
@@ -916,6 +977,7 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
                   const today = new Date();
                   setBdMonth(today.getMonth() + 1);
                   setBdDay(today.getDate());
+                  setSelectedAniversariantes([]);
                 }}
                 style={bdDay === new Date().getDate() && bdMonth === new Date().getMonth() + 1 ? { background: '#fce7f3', color: '#be185d', borderColor: '#f9a8d4' } : {}}
               >
@@ -926,7 +988,7 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
               <select
                 className={styles.daySelect}
                 value={bdDay ?? ''}
-                onChange={e => setBdDay(e.target.value ? parseInt(e.target.value) : null)}
+                onChange={e => { setBdDay(e.target.value ? parseInt(e.target.value) : null); setSelectedAniversariantes([]); }}
               >
                 <option value="">Todos os dias</option>
                 {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
@@ -937,7 +999,7 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
               {bdDay !== null && (
                 <button
                   className={styles.filterPill}
-                  onClick={() => setBdDay(null)}
+                  onClick={() => { setBdDay(null); setSelectedAniversariantes([]); }}
                   style={{ background: '#fee2e2', color: '#b91c1c', borderColor: '#fca5a5' }}
                 >
                   <X size={12} /> Limpar dia
@@ -955,15 +1017,28 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {!bdLoading && <span className={styles.bdCount}>{bdPersons.length} contatos</span>}
                 {!bdLoading && bdPersons.length > 0 && (
-                  <button
-                    className={styles.exportBtn}
-                    title="Exportar lista em PDF"
-                    onClick={handleExportPDF}
-                    disabled={exportingPDF}
-                  >
-                    {exportingPDF ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
-                    PDF
-                  </button>
+                  <>
+                    {selectedAniversariantes.length > 0 && (
+                      <button
+                        className={styles.exportBtn}
+                        title="Compartilhar aniversariantes selecionados no WhatsApp"
+                        onClick={handleShareAniversariantes}
+                        style={{ background: '#22c55e', color: 'white', borderColor: '#16a34a' }}
+                      >
+                        <Send size={14} />
+                        Enviar ({selectedAniversariantes.length})
+                      </button>
+                    )}
+                    <button
+                      className={styles.exportBtn}
+                      title="Exportar lista em PDF"
+                      onClick={handleExportPDF}
+                      disabled={exportingPDF}
+                    >
+                      {exportingPDF ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
+                      PDF
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -979,8 +1054,13 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
               </div>
             ) : (
               <div className={styles.birthdayGrid}>
-                {bdPersons.map(p => (
-                  <div key={p.id} className={`glass-card ${styles.birthdayCard}`}>
+                {bdPersons.map(p => {
+                  const isSelected = selectedAniversariantes.includes(p.id);
+                  return (
+                  <div key={p.id} className={`glass-card ${styles.birthdayCard} ${isSelected ? styles.birthdayCardSelected : ''}`} onClick={(e) => toggleAniversarianteSelection(p.id, e)}>
+                    <div className={styles.bdCheckbox} onClick={(e) => toggleAniversarianteSelection(p.id, e)}>
+                      <input type="checkbox" checked={isSelected} readOnly />
+                    </div>
                     <div className={styles.bdAvatar}>
                       {p.full_name.charAt(0).toUpperCase()}
                     </div>
@@ -1000,7 +1080,7 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
                       </a>
                     )}
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </div>
@@ -1370,6 +1450,12 @@ export default function CadinDashboard({ tenantId }: { tenantId: string }) {
           </div>
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          INFO MODAL (GLOBAL ALERTS)
+      ════════════════════════════════════════════════════════════════════════ */}
+      <GlobalAlerts infoModal={infoModal} setInfoModal={setInfoModal} />
+
     </div>
   );
 }
@@ -1488,10 +1574,15 @@ function PendingUpdateCard({
         </div>
       </div>
 
-      {update.cadin_persons && (
+      {update.cadin_persons ? (
         <div className={styles.updatePerson}>
           <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
           Autoridade: <strong>{update.cadin_persons.full_name}</strong>
+        </div>
+      ) : (
+        <div className={styles.updatePerson} style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+          <UserPlus size={14} style={{ color: '#3b82f6' }} />
+          <strong>NOVA AUTORIDADE:</strong> {update.suggested_changes?.full_name || 'Nome extraído...'}
         </div>
       )}
 
@@ -1527,6 +1618,35 @@ function PendingUpdateCard({
             : <Check size={14} />}
           Aplicar ao CADIN
         </button>
+      </div>
+    </div>
+  );
+}
+
+function GlobalAlerts({ infoModal, setInfoModal }: any) {
+  if (!infoModal) return null;
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.4)', zIndex: 99999, backdropFilter: 'blur(2px)' }} onClick={() => setInfoModal(null)}>
+      <div className="glass-card" onClick={e => e.stopPropagation()} style={{
+        background: 'white', maxWidth: 400, padding: '24px',
+        borderRadius: 16, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+        display: 'flex', flexDirection: 'column', gap: 16, position: 'relative'
+      }}>
+        <button onClick={() => setInfoModal(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+          <X size={20} />
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {infoModal.type === 'error' ? <AlertTriangle size={28} color="#ef4444" /> : <Check size={28} color="#10b981" />}
+          <h3 style={{ margin: 0, fontSize: 18, color: '#0f172a', fontWeight: 600 }}>{infoModal.title}</h3>
+        </div>
+        <p style={{ margin: 0, color: '#475569', fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+          {infoModal.message}
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <button onClick={() => setInfoModal(null)} style={{ background: infoModal.type === 'error' ? '#ef4444' : '#10b981', color: 'white', border: 'none', borderRadius: 8, padding: '10px 24px', cursor: 'pointer', fontWeight: 500 }}>
+            OK
+          </button>
+        </div>
       </div>
     </div>
   );

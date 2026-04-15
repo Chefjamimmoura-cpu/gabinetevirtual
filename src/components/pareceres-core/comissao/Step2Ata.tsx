@@ -12,7 +12,7 @@ interface Step2AtaProps {
   membrosLoading: boolean;
   ataResult: string | null;
   isGerando: boolean;
-  onGerarAta: (params: { data: string; horaInicio: string; horaFim: string; voto: string }) => void;
+  onGerarAta: (params: { data: string; horaInicio: string; horaFim: string }) => void;
   onExportOdt: () => void;
   onExportDocx: () => void;
   onVoltar: () => void;
@@ -26,8 +26,6 @@ export function Step2Ata({
   const [data, setData] = useState(new Date().toISOString().split('T')[0]);
   const [horaInicio, setHoraInicio] = useState('OITO HORAS');
   const [horaFim, setHoraFim] = useState('NOVE HORAS');
-  const [voto, setVoto] = useState<'FAVORÁVEL' | 'CONTRÁRIO' | 'SEGUIR RELATOR'>('FAVORÁVEL');
-
   const cargoBadge = (cargo: string) => {
     const map: Record<string, { bg: string; color: string; label: string }> = {
       presidente: { bg: '#eaf1f8', color: '#16325B', label: 'Presidente' },
@@ -108,23 +106,12 @@ export function Step2Ata({
                 style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.8rem', boxSizing: 'border-box' }} />
             </div>
           </div>
-          <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Voto da Comissão</label>
-            <div className={styles.votoGroup}>
-              {(['FAVORÁVEL', 'CONTRÁRIO', 'SEGUIR RELATOR'] as const).map(v => (
-                <button key={v} type="button" onClick={() => setVoto(v)}
-                  className={`${styles.votoBtn} ${voto === v ? (v === 'FAVORÁVEL' ? styles.votoFavoravel : v === 'CONTRÁRIO' ? styles.votoContrario : styles.votoSeguirRelator) : ''}`}>
-                  {v === 'FAVORÁVEL' ? '✓ FAVORÁVEL' : v === 'CONTRÁRIO' ? '✗ CONTRÁRIO' : '↪ SEGUIR RELATOR'}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Navegação */}
         <div className={styles.stepFooter}>
           <button className={styles.btnSecondary} onClick={onVoltar}><ArrowLeft size={15} /> Voltar</button>
-          <button className={styles.btnTeal} onClick={() => onGerarAta({ data, horaInicio, horaFim, voto })} disabled={isGerando}>
+          <button className={styles.btnTeal} onClick={() => onGerarAta({ data, horaInicio, horaFim })} disabled={isGerando}>
             {isGerando ? <><Loader2 size={16} className={styles.spinIcon} /> Gerando ATA...</> : <><FileText size={16} /> Gerar ATA ({materias.length} matéria{materias.length !== 1 ? 's' : ''})</>}
           </button>
         </div>

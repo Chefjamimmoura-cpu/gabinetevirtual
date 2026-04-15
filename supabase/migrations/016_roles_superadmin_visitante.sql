@@ -13,10 +13,9 @@ ALTER TABLE profiles
   ADD CONSTRAINT profiles_role_check
   CHECK (role IN ('admin', 'vereador', 'assessor', 'superadmin', 'visitante'));
 
--- 2. Promove o usuário jamimcoelho@gmail.com para superadmin
---    (execute APÓS aplicar esta migration)
--- UPDATE profiles SET role = 'superadmin'
---   WHERE email = 'jamimcoelho@gmail.com';
+-- 2. Promove o usuário jamim.moura@gmail.com para superadmin
+UPDATE profiles SET role = 'superadmin'
+  WHERE email = 'jamim.moura@gmail.com';
 
 -- ============================================================
 -- Para criar o usuário visitante, use o painel Superadmin

@@ -11,8 +11,13 @@ import {
   type DashboardChatBody,
 } from '@/lib/alia/adapters/dashboard';
 import { process as aliaBrain } from '@/lib/alia/brain';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 export async function POST(req: NextRequest) {
+  // Auth obrigatória — chat consome Gemini API (custo por interação)
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   // 1. Validate API key
   if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json({ error: 'GEMINI_API_KEY não configurada' }, { status: 500 });

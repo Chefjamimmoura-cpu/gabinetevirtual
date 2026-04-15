@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const GABINETE_ID = process.env.GABINETE_ID!;
 
@@ -12,7 +13,10 @@ function supabase() {
 
 // GET /api/gabinete/config
 // Retorna configurações gerais do gabinete: flags de features + relator_nome_padrao.
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   try {
     const db = supabase();
     const { data, error } = await db
@@ -42,6 +46,10 @@ export async function GET(_req: NextRequest) {
 // Atualiza campos configuráveis do gabinete.
 // Body aceito: { relator_nome_padrao?: string }
 export async function PATCH(req: NextRequest) {
+  // Auth obrigatória — altera relator_nome_padrao que aparece em pareceres oficiais
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   let body: { relator_nome_padrao?: string };
   try {
     body = await req.json();

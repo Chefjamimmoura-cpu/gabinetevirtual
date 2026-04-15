@@ -294,27 +294,9 @@ export async function fetchOrdemDiaMateriaIds(
 
     if (ids.size > 0) return Array.from(ids);
 
-    // Estratégia 2b: AGORDIA (status 30) + AVPP (57) nos últimos 45 dias.
-    // Aproximação — pode retornar mais matérias do que a sessão específica,
-    // mas é o melhor fallback quando PDF e HTML não estão disponíveis.
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 45);
-    const cutoff = cutoffDate.toISOString().slice(0, 10);
-
-    await Promise.all([30, 57].map(async (status) => {
-      try {
-        const data = await saplGetAll<{ materia: number }>(
-          '/api/materia/tramitacao/',
-          { status, data_tramitacao__gte: cutoff, ordering: '-data_tramitacao', page_size: 100 },
-          3,
-        );
-        for (const t of data.results || []) {
-          if (t.materia) ids.add(t.materia);
-        }
-      } catch {
-        // silencioso
-      }
-    }));
+    // Estratégia 2b: AVPP/AGORDIA — REMOVIDA para sessões futuras.
+    // Retornava todas as matérias em fila geral (ex: 70) independente da pauta real.
+    // Para sessões futuras sem PDF e sem HTML: retorna vazio (pauta não publicada ainda).
   } else {
     // Sessão passada mas sem tramitação vinculada por FK — tenta por data + status de votação
     const STATUSES_VOTACAO = [58, 9, 63];

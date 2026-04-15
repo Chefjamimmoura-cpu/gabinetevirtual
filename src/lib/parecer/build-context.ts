@@ -87,7 +87,7 @@ export async function fetchCommissionDocContents(
           const url = arquivo.startsWith('http') ? arquivo : `${SAPL_BASE}${arquivo}`;
           const res = await fetch(url, {
             headers: { 'User-Agent': 'Mozilla/5.0 CMBV-Gabinete/2.0' },
-            signal: AbortSignal.timeout(5_000), // 5s máx por doc
+            signal: AbortSignal.timeout(10_000), // 10s máx por doc (pdftotext precisa do arquivo completo)
           });
           if (!res.ok) return;
           const buf = Buffer.from(await res.arrayBuffer());
@@ -95,7 +95,7 @@ export async function fetchCommissionDocContents(
           // Timeout de 25s para não bloquear a geração em VPS com OCR lento.
           const text = await Promise.race([
             extractTextFromPdfBuffer(buf),
-            new Promise<string>(resolve => setTimeout(() => resolve(''), 25_000)),
+            new Promise<string>(resolve => setTimeout(() => resolve(''), 30_000)),
           ]);
           const printable = (text.match(/[a-záéíóúãõâêôàüçA-ZÁÉÍÓÚÃÕÂÊÔÀÜÇ\s]/g) || []).length;
           if (printable > 30) map.set(id, text);
@@ -477,7 +477,7 @@ export function buildMateriaContext(
     blocoGroups.forEach((nums, bloco) => {
       context += `  • ${bloco}: ${nums.length} matéria(s) — itens ${nums[0]} a ${nums[nums.length - 1]}\n`;
     });
-    context += `⚠️ INSTRUÇÃO: Organize o parecer por bloco, com cabeçalho "EM ${[...blocoGroups.keys()].join(' / ')}" antes de cada grupo.\n\n`;
+    context += `⚠️ INSTRUÇÃO: Organize o parecer RESPEITANDO A ORDEM EXATA DA PAUTA. PDLs aparecem na posição em que constam na Ordem do Dia (NÃO no final). Cada bloco de votação (Segunda Discussão, Primeira Discussão, PDLs etc.) deve ter seu cabeçalho "## BLOCO..." na posição correta.\n\n`;
   }
 
   // Bloco de Expediente — listagem simples, zero tokens de análise

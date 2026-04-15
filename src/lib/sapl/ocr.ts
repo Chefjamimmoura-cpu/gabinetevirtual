@@ -47,12 +47,30 @@ export function detectVoteInText(text: string): 'FAVORÁVEL' | 'CONTRÁRIO' | 'N
   return 'NÃO IDENTIFICADO';
 }
 
+// ── Extração de texto via pdftotext (poppler-utils) ─────────
+// Método mais confiável para PDFs com texto embutido (não imagem).
+// Requer poppler-utils instalado (já incluso no Dockerfile).
+async function pdftotextExtract(buf: Buffer): Promise<string> {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cmbv_pdftotext_'));
+  const tmpPdf = path.join(tmpDir, 'doc.pdf');
+  try {
+    fs.writeFileSync(tmpPdf, buf);
+    const { stdout } = await execFileAsync('pdftotext', ['-layout', tmpPdf, '-'], {
+      timeout: 15_000,
+    });
+    return stdout;
+  } catch {
+    return '';
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignora */ }
+  }
+}
+
 // ── Extração de texto via FlateDecode (sem OCR) ──────────────
+// Descomprime streams FlateDecode e extrai strings de texto dos operadores PDF (Tj/TJ).
+// NÃO inclui o buffer bruto — apenas conteúdo decodificado dos streams.
 export function extractTextFlateDecode(buf: Buffer): string {
   const parts: string[] = [];
-
-  // Buffer bruto (URIs e anotações plaintext)
-  parts.push(buf.toString('latin1'));
 
   // Streams FlateDecode
   let pos = 0;
@@ -70,12 +88,25 @@ export function extractTextFlateDecode(buf: Buffer): string {
     const compressed = buf.subarray(streamStart + headerLen, endstream);
     for (const inflate of [inflateSync, inflateRawSync]) {
       try {
-        parts.push(inflate(compressed).toString('latin1'));
+        const decoded = inflate(compressed).toString('latin1');
+        // Extrai apenas strings de operadores de texto PDF (Tj e TJ)
+        // Ex: (Parecer Favorável) Tj  ou  [(texto)] TJ
+        const tjMatches = decoded.match(/\(([^)]{2,})\)\s*T[jJ]/g);
+        if (tjMatches) {
+          for (const m of tjMatches) {
+            const inner = m.match(/\(([^)]+)\)/);
+            if (inner) parts.push(inner[1]);
+          }
+        }
         break;
       } catch { /* não é FlateDecode */ }
     }
     pos = endstream + 9;
   }
+
+  // Também extrai URIs plaintext do buffer (links SAPL, etc.)
+  const uriMatches = buf.toString('latin1').match(/https?:\/\/sapl[^\s<>)]+/g);
+  if (uriMatches) parts.push(...uriMatches);
 
   return parts.join(' ');
 }
@@ -123,26 +154,32 @@ async function ocrBuffer(buf: Buffer, maxPagesSec = 30): Promise<string> {
 
 /**
  * Extrai todo o texto de um buffer PDF.
- * Tenta FlateDecode primeiro (rápido); cai para OCR se o documento for imagem.
+ *
+ * Pipeline de 3 camadas (do mais confiável ao mais lento):
+ *   1. pdftotext (poppler-utils) — ideal para PDFs com texto embutido
+ *   2. FlateDecode (zlib) — fallback se pdftotext não está disponível
+ *   3. OCR (tesseract) — último recurso para PDFs baseados em imagem
  */
 export async function extractTextFromPdfBuffer(buf: Buffer): Promise<string> {
+  // ── Camada 1: pdftotext (poppler-utils) ──
+  // Método mais confiável para PDFs com texto embutido (caso da maioria dos pareceres da CMBV).
+  const ptText = await pdftotextExtract(buf);
+  if (ptText.trim().length > 50) return ptText;
+
+  // ── Camada 2: FlateDecode (zlib) ──
+  // Descomprime streams e extrai operadores Tj/TJ. Rápido mas menos confiável.
   const flatText = extractTextFlateDecode(buf);
+  if (flatText.trim().length > 50) return flatText;
 
-  // Se o texto extraído por FlateDecode contém palavras-chave de voto → usa diretamente
-  if (detectVoteInText(flatText) !== 'NÃO IDENTIFICADO') return flatText;
-
-  // Heurística: PDF baseado em imagem tem muito binário e pouco texto legível
-  // Verifica se o "texto" extraído é principalmente lixo binário
-  const printableRatio =
-    (flatText.match(/[\x20-\x7e\xc0-\xff]/g)?.length ?? 0) / Math.max(flatText.length, 1);
-
-  if (printableRatio < 0.5 && buf.length < 8 * 1024 * 1024) {
-    // Provável imagem — tenta OCR (máx 25s por página)
+  // ── Camada 3: OCR (tesseract) ──
+  // Para PDFs baseados em imagem (escaneados). Lento mas captura tudo.
+  if (buf.length < 8 * 1024 * 1024) {
     const ocrText = await ocrBuffer(buf, 25);
     if (ocrText.trim().length > 50) return ocrText;
   }
 
-  return flatText;
+  // Nenhum método extraiu texto suficiente
+  return flatText || ptText;
 }
 
 /**

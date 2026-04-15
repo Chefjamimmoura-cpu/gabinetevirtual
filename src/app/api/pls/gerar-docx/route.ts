@@ -1,16 +1,20 @@
 // POST /api/pls/gerar-docx
-// Sprint 5 — Geração do DOCX oficial do PL (padrão CMBV + LC 95/1998)
+// Sprint 6 — Geração do DOCX oficial do PL (padrão CMBV + LC 95/1998)
+// Inclui brasão municipal no cabeçalho
 //
 // Recebe: { pl_id, texto_aprovado, ementa }
 // Retorna: { ok, url, filename } — URL pública no Supabase Storage
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+import path from 'path';
 import {
   Document,
   Packer,
   Paragraph,
   TextRun,
+  ImageRun,
   AlignmentType,
   BorderStyle,
   Header,
@@ -202,19 +206,44 @@ export async function POST(request: NextRequest) {
           },
           headers: {
             default: new Header({
-              children: [
-                new Paragraph({
-                  alignment: AlignmentType.RIGHT,
-                  children: [
-                    new TextRun({
-                      text: 'Câmara Municipal de Boa Vista — Vereadora Carol Dantas',
-                      size: 16,
-                      color: '666666',
-                      font: 'Arial',
+              children: (() => {
+                const headerChildren: Paragraph[] = [];
+                // Tenta carregar o brasão municipal
+                try {
+                  const brasaoPath = path.join(process.cwd(), 'public', 'brasao_municipal.png');
+                  const brasaoBuffer = fs.readFileSync(brasaoPath);
+                  headerChildren.push(
+                    new Paragraph({
+                      alignment: AlignmentType.CENTER,
+                      spacing: { before: 0, after: 80 },
+                      children: [
+                        new ImageRun({
+                          data: brasaoBuffer,
+                          transformation: { width: 72, height: 72 },
+                          type: 'png',
+                        }),
+                      ],
                     }),
-                  ],
-                }),
-              ],
+                  );
+                } catch {
+                  // Brasão não encontrado — continua sem imagem
+                }
+                headerChildren.push(
+                  new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 0, after: 0 },
+                    children: [
+                      new TextRun({
+                        text: 'Câmara Municipal de Boa Vista — Vereadora Carol Dantas',
+                        size: 16,
+                        color: '666666',
+                        font: 'Arial',
+                      }),
+                    ],
+                  }),
+                );
+                return headerChildren;
+              })(),
             }),
           },
           footers: {

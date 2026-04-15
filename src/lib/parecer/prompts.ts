@@ -87,9 +87,31 @@ O documento deve seguir EXATAMENTE este esqueleto — incluindo marcadores, emoj
 
 ---
 
-## BLOCO 1: SEGUNDA DISCUSSÃO E VOTAÇÃO
+⚠️ REGRA ABSOLUTA DE ORDENAÇÃO: Os blocos e itens DEVEM aparecer na MESMA ORDEM da Ordem do Dia (pauta oficial).
+Na CMBV, a pauta frequentemente começa com PDLs (Única Discussão), depois Segunda Discussão, depois Primeira Discussão.
+Siga EXATAMENTE a sequência dos itens conforme o contexto — NÃO reordene, NÃO mova PDLs para o final.
 
-#### Item 1 — [TIPO NUM/ANO](https://sapl.boavista.rr.leg.br/materia/ID)
+## EM ÚNICA DISCUSSÃO E VOTAÇÃO
+
+(Este bloco aparece quando há PDLs — honrarias, títulos e condecorações)
+Formato simplificado de cada PDL (sem pareceres de comissão, sem folha de votação):
+
+#### [PDL Nº NUM/ANO](https://sapl.boavista.rr.leg.br/materia/ID)
+- **Autor:** [Nome do autor]
+- **Ementa:** [Texto da ementa]
+
+---
+
+(repita para cada PDL, separados por ---)
+
+Ao final do grupo de PDLs:
+**Recomendação Geral dos PDLs:** VOTO FAVORÁVEL EM BLOCO.
+
+---
+
+## EM SEGUNDA DISCUSSÃO E VOTAÇÃO
+
+#### Item N — [TIPO NUM/ANO](https://sapl.boavista.rr.leg.br/materia/ID)
 
 - **Autor:** [Nome completo do autor]
 - **Ementa:** [Texto exato da ementa da matéria]
@@ -106,22 +128,9 @@ O documento deve seguir EXATAMENTE este esqueleto — incluindo marcadores, emoj
 
 ---
 
-#### Item 2 — [TIPO NUM/ANO](https://sapl.boavista.rr.leg.br/materia/ID)
-[... mesmo formato ...]
+## EM PRIMEIRA DISCUSSÃO E VOTAÇÃO
 
----
-
-## BLOCO 2: PRIMEIRA DISCUSSÃO E VOTAÇÃO
-
-[itens em primeira discussão, mesmo formato]
-
----
-
-## BLOCO PDL: HONRARIAS, TÍTULOS E CONDECORAÇÕES
-
-[PDLs listados, formato simplificado — sem pareceres de comissão]
-
-**Recomendação Geral do Bloco PDL:** VOTO FAVORÁVEL EM BLOCO.
+[itens em primeira discussão, mesmo formato completo dos PLLs acima]
 
 ---
 
@@ -134,12 +143,11 @@ O documento deve seguir EXATAMENTE este esqueleto — incluindo marcadores, emoj
 
 ### REGRAS DE AGRUPAMENTO EM BLOCOS
 
-- **BLOCO 1 — SEGUNDA DISCUSSÃO**: Matérias que já passaram por 1ª votação (tramitações indicam "Aprovada em 1ª Discussão" ou há 2+ pareceres de comissão). Ordenar por número sequencial da ordem do dia.
-- **BLOCO 2 — PRIMEIRA DISCUSSÃO**: Matérias sem histórico de 1ª votação aprovada.
-- **BLOCO ÚNICO**: Matérias em regime de urgência ou única discussão.
-- **BLOCO PDL**: Projetos de Decreto Legislativo (honrarias, títulos, medalhas). Sempre último bloco.
+- **EM ÚNICA DISCUSSÃO E VOTAÇÃO**: PDLs (honrarias, títulos, medalhas) e matérias em regime de urgência/única discussão.
+- **EM SEGUNDA DISCUSSÃO E VOTAÇÃO**: Matérias que já passaram por 1ª votação (tramitações indicam "Aprovada em 1ª Discussão" ou há 2+ pareceres de comissão).
+- **EM PRIMEIRA DISCUSSÃO E VOTAÇÃO**: Matérias sem histórico de 1ª votação aprovada.
+- **ORDEM DOS BLOCOS**: Siga a ordem EXATA da Ordem do Dia (campo "BLOCO DE VOTAÇÃO" do contexto). Na CMBV, normalmente: Única Discussão (PDLs) → Segunda Discussão → Primeira Discussão. **NUNCA reordene os blocos.**
 - Se não houver matérias num bloco, **omita o bloco**.
-- A lógica de agrupamento vem do campo "BLOCO DE VOTAÇÃO" do contexto.
 
 ### REGRAS DE FORMATAÇÃO (OBRIGATÓRIAS)
 
@@ -179,7 +187,14 @@ O documento deve seguir EXATAMENTE este esqueleto — incluindo marcadores, emoj
 
 ### PDLs (Honrarias)
 - Sempre VOTO FAVORÁVEL (matéria interna corporis, sem análise jurídica profunda)
-- Formato simplificado: Autor + Ementa + Recomendação (sem pareceres de comissão)
+- Formato OBRIGATÓRIO simplificado:
+  - Título: \`#### [PDL Nº NUM/ANO](URL_SAPL)\` — o número da matéria É o próprio link
+  - Abaixo: \`- **Autor:** Nome\`
+  - Abaixo: \`- **Ementa:** Texto\`
+  - Nada mais. Sem pareceres de comissão, sem folha de votação, sem recomendação individual.
+  - Separar cada PDL com \`---\`
+  - Ao final do grupo de PDLs: \`**Recomendação Geral dos PDLs:** VOTO FAVORÁVEL EM BLOCO.\`
+- POSIÇÃO: Os PDLs devem aparecer na ordem em que constam na Ordem do Dia, NÃO no final.
 
 ---
 

@@ -5,7 +5,10 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
+# Instala dependências
 RUN npm ci
+# SWC nativo para Alpine (musl) — necessário para Next.js Turbopack (opcional, não falha o build)
+RUN npm install @next/swc-linux-x64-musl --cpu=x64 --os=linux --libc=musl --no-save 2>/dev/null || true
 
 # ── Stage 2: build ──────────────────────────────────────────────────────────
 FROM base AS builder
@@ -33,7 +36,9 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # OCR para extração de matérias de PDFs baseados em imagem (pautas da CMBV)
-RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-por poppler-utils
+# yt-dlp + ffmpeg para extração e compressão de áudio (módulo Transcrição de Sessões)
+RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-por poppler-utils ffmpeg python3 py3-pip nodejs-current \
+    && pip3 install --break-system-packages yt-dlp
 
 COPY --from=builder /app/public ./public
 
@@ -54,6 +59,8 @@ RUN mkdir -p /ROOT/node_modules/pdfkit/js && \
 
 # Marcas institucionais (brasão, logos) — usadas na capa dos PDFs gerados
 COPY --from=builder --chown=nextjs:nodejs /app/Marcas ./Marcas
+
+RUN chown -R nextjs:nodejs /home/nextjs
 
 USER nextjs
 

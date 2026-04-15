@@ -17,10 +17,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const GABINETE_ID = process.env.GABINETE_ID!;
 
 export async function GET(req: NextRequest) {
+  // Auth obrigatória — expõe PII de cidadãos (nome, bairro, GPS, fotos)
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const { searchParams } = req.nextUrl;
 
   const q = searchParams.get('q') ?? '';

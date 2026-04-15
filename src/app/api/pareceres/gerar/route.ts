@@ -16,6 +16,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 import { SYSTEM_PROMPT } from '@/lib/parecer/prompts';
 import { createRateLimiter } from '@/lib/rate-limit';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const parecerLimiter = createRateLimiter({ windowMs: 60_000, max: 5 });
 import { buildMateriaContext, fetchCommissionDocContents } from '@/lib/parecer/build-context';
@@ -82,6 +83,10 @@ function loadRagBase(): string {
 }
 
 export async function POST(req: NextRequest) {
+  // Auth obrigatória — geração de parecer consome Gemini (custo)
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const rateLimited = parecerLimiter.check(req);
   if (rateLimited) return rateLimited;
 

@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     texto_aprovado?: string;
     ementa?: string;
     justificativa?: string;
+    status?: string;
   };
 
   try {
@@ -28,10 +29,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 });
   }
 
-  const { pl_id, texto_aprovado, ementa, justificativa } = body;
+  const { pl_id, texto_aprovado, ementa, justificativa, status: reqStatus } = body;
   if (!pl_id) {
     return NextResponse.json({ error: 'Campo "pl_id" é obrigatório' }, { status: 400 });
   }
+
+  // Modo rascunho: apenas confirma salvamento sem exigir texto
+  if (reqStatus === 'RASCUNHO') {
+    try {
+      const { error: updateErr } = await supabase
+        .from('pl_proposicoes')
+        .update({ status: 'RASCUNHO', updated_at: new Date().toISOString() })
+        .eq('id', pl_id);
+      if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+      return NextResponse.json({ ok: true, pl_id, mensagem: 'Rascunho salvo.' });
+    } catch (err: unknown) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : 'Erro' }, { status: 500 });
+    }
+  }
+
   if (!texto_aprovado) {
     return NextResponse.json({ error: 'Campo "texto_aprovado" é obrigatório (RN-02: aprovação exige texto)' }, { status: 400 });
   }

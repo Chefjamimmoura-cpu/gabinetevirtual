@@ -816,6 +816,34 @@
   gap: 12px;
   padding: 14px 16px;
   border-radius: 12px;
+  position: relative;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.birthdayCard:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.birthdayCardSelected {
+  background: #f8fafc;
+  border-color: var(--accent-300, #a5b4fc);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
+}
+
+.bdCheckbox {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+}
+
+.bdCheckbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent-500, #6366f1);
 }
 
 .bdAvatar {

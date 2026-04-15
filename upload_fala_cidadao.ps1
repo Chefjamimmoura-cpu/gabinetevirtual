@@ -1,12 +1,39 @@
 $VPS = "root@76.13.170.230"
 $DEST = "/opt/gabinete-carol"
 
+# ── Carregar segredos locais (não versionados) ───────────────────
+# .deploy-secrets.ps1 fica na raiz do workspace (um nível acima deste script)
+$secretsFile = Join-Path (Split-Path -Parent $PSScriptRoot) ".deploy-secrets.ps1"
+if (Test-Path $secretsFile) {
+    . $secretsFile
+}
+
+# ── Validar credenciais Fala Cidadão (acesso pessoal da Cynthia) ─
+# NOTA: Fala Cidadão é acesso pessoal, será substituído pelo sistema
+# próprio de indicações. Credenciais carregadas de .deploy-secrets.ps1.
+$faltando = @()
+if (-not $env:FALA_CIDADAO_APP_KEY)   { $faltando += "FALA_CIDADAO_APP_KEY" }
+if (-not $env:FALA_CIDADAO_LOGIN)     { $faltando += "FALA_CIDADAO_LOGIN" }
+if (-not $env:FALA_CIDADAO_PASSWORD)  { $faltando += "FALA_CIDADAO_PASSWORD" }
+
+if ($faltando.Count -gt 0) {
+    Write-Host "ERRO: Variaveis de ambiente faltando: $($faltando -join ', ')" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Configure criando o arquivo .deploy-secrets.ps1 na raiz do workspace." -ForegroundColor Yellow
+    Write-Host "Use .deploy-secrets.ps1.example como template." -ForegroundColor Yellow
+    exit 1
+}
+
+# Valores públicos (URLs) podem ficar hardcoded; só credenciais vem de env
+$FALA_CIDADAO_API_URL = "https://api.prd.impacto.caroldantas.rr.cidadao.me"
+$NEXTAUTH_URL = "https://gabinete.wonetechnology.cloud"
+
 Write-Host "Injetando Variaveis de Ambiente do Fala Cidadao no Servidor..."
-ssh ${VPS} "echo 'FALA_CIDADAO_API_URL=https://api.prd.impacto.caroldantas.rr.cidadao.me' >> ${DEST}/.env"
-ssh ${VPS} "echo 'FALA_CIDADAO_APP_KEY=IMPCT-KEY-015c24cd39e907b188f8b85966ec447c' >> ${DEST}/.env"
-ssh ${VPS} "echo 'FALA_CIDADAO_LOGIN=64512622268' >> ${DEST}/.env"
-ssh ${VPS} "echo 'FALA_CIDADAO_PASSWORD=2013Cpss.' >> ${DEST}/.env"
-ssh ${VPS} "echo 'NEXTAUTH_URL=https://gabinete.wonetechnology.cloud' >> ${DEST}/.env"
+ssh ${VPS} "echo 'FALA_CIDADAO_API_URL=$FALA_CIDADAO_API_URL' >> ${DEST}/.env"
+ssh ${VPS} "echo 'FALA_CIDADAO_APP_KEY=$env:FALA_CIDADAO_APP_KEY' >> ${DEST}/.env"
+ssh ${VPS} "echo 'FALA_CIDADAO_LOGIN=$env:FALA_CIDADAO_LOGIN' >> ${DEST}/.env"
+ssh ${VPS} "echo 'FALA_CIDADAO_PASSWORD=$env:FALA_CIDADAO_PASSWORD' >> ${DEST}/.env"
+ssh ${VPS} "echo 'NEXTAUTH_URL=$NEXTAUTH_URL' >> ${DEST}/.env"
 
 Write-Host "Criando pastas no VPS..."
 ssh ${VPS} "mkdir -p ${DEST}/src/lib/fala-cidadao ${DEST}/src/app/api/indicacoes/fala-cidadao ${DEST}/src/app/api/indicacoes/nova ${DEST}/src/app/api/indicacoes/gerar-documento ${DEST}/src/app/api/indicacoes/campo ${DEST}/src/app/api/indicacoes/whatsapp/ordem-visita ${DEST}/src/app/api/alia/webhook ${DEST}/src/app/(dashboard)/indicacoes/components"

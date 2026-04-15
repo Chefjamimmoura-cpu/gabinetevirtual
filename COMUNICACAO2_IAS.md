@@ -95,5 +95,7 @@ docker compose up -d
 ## PENDÊNCIAS PARA PRÓXIMA SESSÃO
 - [ ] Testar wizard com tema diferente (pets, transporte, etc.) — validar que não repete
 - [ ] VPS: limpeza de disco (77% ocupada) — auditar projetos
-- [ ] Gráfico de barras temáticas no painel `/pls`
+- [x] Gráfico de barras temáticas no painel `/pls` — implementado Sprint 5.5
 - [ ] Ajuste fino no DOCX (brasão municipal no cabeçalho)
+- [x] Integrar PLs internos (`pl_proposicoes`) no dashboard — implementado Sprint 5.5
+- [x] Bucket `gabinete_docs` criado no Supabase — Sprint 5.5

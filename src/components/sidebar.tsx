@@ -17,9 +17,11 @@ import {
   LogOut,
   Settings,
   Zap,
-  ShieldAlert
+  ShieldAlert,
+  AudioLines
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { hasFullAccess, hasPermission, type Permissions } from '@/lib/permissions';
 import styles from './sidebar.module.css';
 
 const MODULES = [
@@ -30,6 +32,7 @@ const MODULES = [
   { id: 'indicacoes', label: 'Indicações', icon: MapPin, href: '/indicacoes' },
   { id: 'oficios', label: 'Ofícios', icon: Mail, href: '/oficios' },
   { id: 'cadin', label: 'CADIN', icon: BookUser, href: '/cadin' },
+  { id: 'sessoes', label: 'Transcrições', icon: AudioLines, href: '/sessoes' },
   { id: 'alia', label: 'Assistente ALIA', icon: Zap, href: '/laia' },
   { id: 'configuracoes', label: 'Configurações', icon: Settings, href: '/configuracoes' },
 ] as const;
@@ -37,6 +40,9 @@ const MODULES = [
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [userRole, setUserRole] = useState('');
+  const [userPermissions, setUserPermissions] = useState<Partial<Permissions> | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
   const pathname = usePathname();
   const supabase = createClient();
 
@@ -53,19 +59,53 @@ export default function Sidebar() {
     async function checkRole() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      
+
       const { data } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, permissions')
         .eq('id', user.id)
         .single();
-        
-      if (data && data.role === 'superadmin') {
-        setIsSuperAdmin(true);
+
+      if (data) {
+        setUserRole(data.role);
+        setUserPermissions(data.permissions);
+        if (data.role === 'superadmin') {
+          setIsSuperAdmin(true);
+          // Carrega contagem de pendentes
+          const { count } = await supabase
+            .from('profiles')
+            .select('id', { count: 'exact', head: true })
+            .eq('approved', false);
+          setPendingCount(count || 0);
+        }
       }
     }
     checkRole();
   }, [supabase]);
+
+  // Realtime: atualiza badge de pendentes no sidebar
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+
+    const channel = supabase
+      .channel('sidebar-pending-count')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        async () => {
+          const { count } = await supabase
+            .from('profiles')
+            .select('id', { count: 'exact', head: true })
+            .eq('approved', false);
+          setPendingCount(count || 0);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isSuperAdmin, supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -96,7 +136,12 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className={styles.nav}>
-        {MODULES.map((mod) => {
+        {MODULES.filter((mod) => {
+          // Roles com acesso total veem tudo
+          if (hasFullAccess(userRole)) return true;
+          // Visitante e outros: verificar permissão do módulo
+          return hasPermission(userPermissions, mod.id);
+        }).map((mod) => {
           const Icon = mod.icon;
           const active = isActive(mod.href);
           return (
@@ -117,11 +162,52 @@ export default function Sidebar() {
           <Link
             href="/superadmin"
             className={`${styles.navItem} ${isActive('/superadmin') ? styles.active : ''}`}
-            title={collapsed ? 'SuperAdmin' : undefined}
-            style={{ marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}
+            title={collapsed ? `SuperAdmin${pendingCount > 0 ? ` (${pendingCount} pendente${pendingCount > 1 ? 's' : ''})` : ''}` : undefined}
+            style={{ marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '16px', position: 'relative' }}
           >
-            <ShieldAlert size={20} color="#dc2626" />
-            {!collapsed && <span style={{ color: '#dc2626', fontWeight: 600 }}>SuperAdmin</span>}
+            <div style={{ position: 'relative', display: 'inline-flex' }}>
+              <ShieldAlert size={20} color="#dc2626" />
+              {pendingCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  right: '-8px',
+                  background: '#f59e0b',
+                  color: 'white',
+                  fontSize: '0.6rem',
+                  fontWeight: 800,
+                  minWidth: '16px',
+                  height: '16px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 3px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  animation: 'pulse 2s infinite',
+                }}>
+                  {pendingCount}
+                </span>
+              )}
+            </div>
+            {!collapsed && (
+              <span style={{ color: '#dc2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                SuperAdmin
+                {pendingCount > 0 && (
+                  <span style={{
+                    background: '#fef3c7',
+                    color: '#b45309',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    padding: '1px 8px',
+                    borderRadius: '10px',
+                    border: '1px solid #fde68a',
+                  }}>
+                    {pendingCount} pendente{pendingCount > 1 ? 's' : ''}
+                  </span>
+                )}
+              </span>
+            )}
             {isActive('/superadmin') && <div className={styles.activeIndicator} />}
           </Link>
         )}

@@ -69,7 +69,12 @@ export const generalAgent: AliaAgent = {
         },
       });
 
-      const result = await gemini.generateContent(userMessage);
+      // Use startChat with history so the model has conversation context
+      const chat = gemini.startChat({
+        history: context.history ?? [],
+      });
+
+      const result = await chat.sendMessage(userMessage);
       const text = result.response.text().trim();
 
       if (!text) {

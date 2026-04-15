@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createClient } from '@supabase/supabase-js';
 
 const SYSTEM_PROMPT_REDATORA = `Você é a ALIA, redatora legislativa especializada do Gabinete da Vereadora Carol Dantas, Câmara Municipal de Boa Vista, Roraima.
 
@@ -172,7 +173,42 @@ Retorne SOMENTE JSON válido no seguinte formato:
       );
     }
 
-    return NextResponse.json({ ok: true, data: parsed });
+    // ── Salvar rascunho no banco e retornar pl_id ──
+    let pl_id: string | null = null;
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (supabaseUrl && supabaseKey) {
+        const supa = createClient(supabaseUrl, supabaseKey);
+        const ementa = (parsed.ementa as string) || tema;
+        const textoCompleto = JSON.stringify(parsed);
+        const justificativa = (parsed.justificativa as string) || '';
+
+        const { data: row, error: insertErr } = await supa
+          .from('pl_proposicoes')
+          .insert({
+            tipo: 'PLL',
+            ementa,
+            tema,
+            status: 'RASCUNHO',
+            texto_pl: textoCompleto,
+            justificativa,
+            gabinete_id: process.env.GABINETE_ID || null,
+          })
+          .select('id')
+          .single();
+
+        if (!insertErr && row) {
+          pl_id = row.id;
+        } else if (insertErr) {
+          console.error('[pls/redigir] DB insert error:', insertErr.message);
+        }
+      }
+    } catch (dbErr) {
+      console.error('[pls/redigir] DB error:', dbErr);
+    }
+
+    return NextResponse.json({ ok: true, data: { ...parsed, _pl_id: pl_id } });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro desconhecido';
     console.error('[pls/redigir] Error:', message);

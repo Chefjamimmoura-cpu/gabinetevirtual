@@ -68,7 +68,7 @@ export function ComissaoWizard({
     });
   }, []);
 
-  const handleGerarAta = useCallback(async (params: { data: string; horaInicio: string; horaFim: string; voto: string }) => {
+  const handleGerarAta = useCallback(async (params: { data: string; horaInicio: string; horaFim: string }) => {
     setIsGerando(true);
     try {
       const res = await fetch('/api/pareceres/comissao/gerar', {
@@ -77,7 +77,6 @@ export function ComissaoWizard({
         body: JSON.stringify({
           materia_ids: [...selectedIds],
           commission_sigla: comissaoSigla,
-          voto: params.voto,
           modo: 'ata',
           data: params.data,
           hora_inicio: params.horaInicio,
@@ -192,7 +191,7 @@ export function ComissaoWizard({
           onSelectAll={() => setSelectedIds(new Set(comissaoFila.map(m => m.id)))}
           onDeselectAll={() => setSelectedIds(new Set())}
           onAvancar={() => setCurrentStep(2)}
-          onIrDiretoPareceres={reunioes.length > 0 ? () => { if (selectedIds.size > 0) setCurrentStep(3); } : undefined}
+          onIrDiretoPareceres={() => { if (selectedIds.size > 0) setCurrentStep(3); }}
           loading={comissaoFilaLoading}
         />
       )}

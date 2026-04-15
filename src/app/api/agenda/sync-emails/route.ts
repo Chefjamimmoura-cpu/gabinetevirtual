@@ -61,7 +61,9 @@ async function syncConta(conta: ContaConfig): Promise<SyncResult> {
       secure: true,
       auth: { user: conta.email, pass: conta.password },
       logger: false,
-      tls: { rejectUnauthorized: false },
+      // Security fix: validar certificado TLS (Gmail/Outlook têm certs válidos).
+      // rejectUnauthorized:false permitia MITM capturar senhas IMAP.
+      tls: { rejectUnauthorized: true },
     });
 
     await client.connect();
