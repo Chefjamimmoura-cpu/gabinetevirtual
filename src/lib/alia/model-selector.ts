@@ -26,9 +26,10 @@ const AGENT_MODELS: Record<AgentType, ModelConfig> = {
   parecer:     { default: 'gemini-2.5-pro', upgrade: 'claude-sonnet-4-6' },
   relator:     { default: 'gemini-2.5-pro', upgrade: 'claude-sonnet-4-6' },
   pls:         { default: 'claude-sonnet-4-6' },
-  crossmodule: { default: 'claude-sonnet-4-6' },
-  email:       { default: 'gemini-2.5-flash', upgrade: 'claude-sonnet-4-6' },
-  sessao:      { default: 'gemini-2.5-flash' },
+  crossmodule:      { default: 'claude-sonnet-4-6' },
+  email:            { default: 'gemini-2.5-flash', upgrade: 'claude-sonnet-4-6' },
+  sessao:           { default: 'gemini-2.5-flash' },
+  consulta_materia: { default: 'gemini-2.5-flash' },
 };
 
 export interface ComplexitySignals {

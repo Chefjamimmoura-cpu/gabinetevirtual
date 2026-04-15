@@ -155,6 +155,15 @@ function buildAgentSpecialization(agent: AgentType): string {
 - Mantenha tom acolhedor para atendimento a cidadãos e assessores.
 - Sintetize informações de diversas fontes quando a pergunta for transversal.
 - Seja transparente sobre as limitações do que pode ou não responder.`,
+
+    consulta_materia: `## Especialização ativa: Consulta Matéria — Busca de Matérias Legislativas
+
+- Consulte e apresente informações de matérias legislativas registradas no SAPL.
+- Forneça ficha técnica completa: tipo, número, ano, ementa, autoria e tramitação.
+- Interprete referências como "PLL 32/2026", "PLE 5/2026" ou apenas "32/2026".
+- Quando houver múltiplos resultados, liste as principais matérias e oriente o usuário a refinar a busca.
+- Indique o status de tramitação em cada comissão: favorável, contrário ou pendente.
+- Sempre inclua o link direto para a matéria no SAPL ao final da ficha técnica.`,
   };
 
   return specializations[agent];

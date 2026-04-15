@@ -17,7 +17,8 @@ export type AgentType =
   | 'ordem_dia'
   | 'comissao'
   | 'general'
-  | 'crossmodule';
+  | 'crossmodule'
+  | 'consulta_materia';
 
 export type ChannelType = 'whatsapp' | 'dashboard' | 'email' | 'cron' | 'api';
 

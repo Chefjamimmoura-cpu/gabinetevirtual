@@ -12,6 +12,7 @@ import { recall, remember } from './memory';
 import { routeDominios } from './router';
 import { searchHybrid, formatRagContext } from './rag';
 import { buildSystemPrompt } from './persona';
+import { fetchHistory } from './adapters/dashboard';
 
 import { cadinAgent }     from './agents/cadin.agent';
 import { indicacaoAgent } from './agents/indicacao.agent';
@@ -24,6 +25,7 @@ import { cadernoPdfAgent } from './agents/caderno-pdf.agent';
 import { emailAgent }      from './agents/email.agent';
 import { comissaoAgent }   from './agents/comissao.agent';
 import { crossmoduleAgent } from './agents/crossmodule.agent';
+import { consultaMateriaAgent } from './agents/consulta-materia.agent';
 
 // ── Gabinete config (hardcoded for now — will come from DB in multi-tenant) ───
 
@@ -52,7 +54,8 @@ const AGENT_REGISTRY: Record<string, AliaAgent> = {
   caderno_pdf: cadernoPdfAgent,
   email:       emailAgent,
   comissao:    comissaoAgent,
-  crossmodule: crossmoduleAgent,
+  crossmodule:      crossmoduleAgent,
+  consulta_materia: consultaMateriaAgent,
 };
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -86,6 +89,15 @@ export async function process(request: AliaRequest): Promise<AliaResponse> {
     dominios: dominios ?? undefined,
   });
   const ragContext = formatRagContext(ragResult);
+
+  // ── Step 4b: Fetch conversation history ────────────────────────────────────
+
+  const rawHistory = await fetchHistory(request.session_id, 40);
+  // Convert to Gemini chat format (role: user|model, parts: [{text}])
+  const history = rawHistory.map((m) => ({
+    role: m.role as 'user' | 'model',
+    parts: [{ text: m.content }],
+  }));
 
   // ── Step 5: Select model ──────────────────────────────────────────────────
 
@@ -123,6 +135,7 @@ export async function process(request: AliaRequest): Promise<AliaResponse> {
     context: {
       memories,
       ragContext: ragContext || undefined,
+      history,
       gabineteId: GABINETE_ID,
       sessionId: request.session_id,
       channel: request.channel,

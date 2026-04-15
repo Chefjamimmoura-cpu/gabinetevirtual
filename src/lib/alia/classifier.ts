@@ -119,6 +119,19 @@ const KEYWORD_SIGNALS: KeywordSignal[] = [
     action: 'consultar',
     boost: 3,
   },
+  // Consulta Matéria: busca de matérias legislativas no SAPL
+  {
+    keywords: [
+      'ementa', 'autoria', 'autor', 'tramitação', 'tramitacao',
+      'consultar matéria', 'consultar materia',
+      'sobre o que é', 'sobre o que e',
+      'qual projeto', 'ficha',
+      'PLL', 'PLE', 'PLO', 'REQ', 'IND', 'RLO', 'PDL',
+    ],
+    agent: 'consulta_materia',
+    action: 'consultar',
+    boost: 3.0,
+  },
 ];
 
 // ── Page Context Mapping ──────────────────────────────────────────────────────
