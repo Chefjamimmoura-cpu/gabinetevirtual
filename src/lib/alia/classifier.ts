@@ -58,6 +58,17 @@ const KEYWORD_SIGNALS: KeywordSignal[] = [
     action: 'consultar',
     boost: 2,
   },
+  // Ordem do Dia: Gerar pareceres autônomos
+  {
+    keywords: [
+      'gerar parecer', 'gera parecer', 'gerar pareceres', 'gera os pareceres',
+      'analisa ordem do dia', 'analisa a ordem', 'processa ordem do dia',
+      'processa a pauta', 'prepara pareceres',
+    ],
+    agent: 'ordem_dia',
+    action: 'gerar_parecer_ordem_dia',
+    boost: 5.0,
+  },
   // Ofícios: Official Documents
   {
     keywords: ['ofício', 'carta', 'correspondência', 'minuta', 'redação oficial'],

@@ -20,6 +20,7 @@ import {
   type EvolutionMessage,
 } from '@/lib/alia/adapters/whatsapp';
 import { process as aliaBrain } from '@/lib/alia/brain';
+import { checkActionPermission } from '@/lib/alia/auth-guard';
 
 const webhookLimiter = createRateLimiter({ windowMs: 60_000, max: 30 });
 
@@ -99,6 +100,33 @@ export async function POST(req: NextRequest) {
     evolution_key: messageId,
     messageType,
   }).catch(() => null);
+
+  // ── 10a. Verificação de permissão para ações restritas ────────────────────
+  {
+    const lowerText = (text ?? '').toLowerCase();
+    let detectedAction: string | null = null;
+
+    if (/gera[r]?\s*(os\s*)?parecer/.test(lowerText)) {
+      detectedAction = 'gerar_parecer_ordem_dia';
+    } else if (/configurar\s*(alia|automa[çc][ãa]o)/.test(lowerText)) {
+      detectedAction = 'configurar_automacao';
+    }
+
+    if (detectedAction) {
+      const gabineteId = process.env.GABINETE_ID ?? '';
+      const authResult = await checkActionPermission(remoteJid, gabineteId, detectedAction);
+
+      if (!authResult.allowed) {
+        const deniedMsg = `⚠️ *Acesso negado*\n\n${authResult.reason ?? 'Você não tem permissão para executar esta ação.'}\n\n_ALIA_`;
+        await sendWhatsAppMessage(remoteJid, deniedMsg);
+        await saveMessage(session.id, 'assistant', deniedMsg, {
+          auth_denied: true,
+          intent_action: detectedAction,
+        }).catch(() => null);
+        return NextResponse.json({ ok: true, auth_denied: true, intent_action: detectedAction });
+      }
+    }
+  }
 
   // ── 10. Build AliaRequest ──────────────────────────────────────────────────
   // Attach resolved media to the message before building the request

@@ -30,6 +30,13 @@ interface SaplOrdemDiaItem {
   tipo: string; // e.g. 'PLL', 'REQ', 'PLE'
 }
 
+interface SaplOrdemDiaMateria {
+  id?: string | number;
+  tipo?: string;
+  numero?: string | number;
+  ano?: number;
+}
+
 interface SaplOrdemDia {
   id: string;
   sessao_data: string;
@@ -75,23 +82,32 @@ function resumoItens(itens: SaplOrdemDiaItem[]): string {
 interface AliaConfig {
   notify_ordem_dia: boolean;
   notify_materia_comissao: boolean;
+  auto_parecer_on_ordem_dia: boolean;
+  parecer_model: string;
 }
 
 async function loadAliaConfig(gabineteId: string): Promise<AliaConfig> {
-  const defaults: AliaConfig = { notify_ordem_dia: true, notify_materia_comissao: true };
+  const defaults: AliaConfig = {
+    notify_ordem_dia: true,
+    notify_materia_comissao: true,
+    auto_parecer_on_ordem_dia: false,
+    parecer_model: 'gemini-2.0-flash',
+  };
 
   try {
     const { data, error } = await db()
       .from('gabinete_alia_config')
-      .select('notify_ordem_dia, notify_materia_comissao')
+      .select('notify_ordem_dia, notify_materia_comissao, auto_parecer_on_ordem_dia, parecer_model')
       .eq('gabinete_id', gabineteId)
       .maybeSingle();
 
     if (error || !data) return defaults;
 
     return {
-      notify_ordem_dia: data.notify_ordem_dia ?? defaults.notify_ordem_dia,
-      notify_materia_comissao: data.notify_materia_comissao ?? defaults.notify_materia_comissao,
+      notify_ordem_dia:           data.notify_ordem_dia           ?? defaults.notify_ordem_dia,
+      notify_materia_comissao:    data.notify_materia_comissao    ?? defaults.notify_materia_comissao,
+      auto_parecer_on_ordem_dia:  data.auto_parecer_on_ordem_dia  ?? defaults.auto_parecer_on_ordem_dia,
+      parecer_model:              (data.parecer_model as string | undefined) ?? defaults.parecer_model,
     };
   } catch {
     return defaults;
@@ -161,6 +177,46 @@ export const saplWatcher: Watcher = {
               action_url: `${APP_URL}/pareceres`,
               detected_at: new Date().toISOString(),
             });
+
+            // ── Auto-geração de pareceres ──────────────────────────────────
+            if (config.auto_parecer_on_ordem_dia) {
+              try {
+                // Buscar matérias da ordem do dia via API interna
+                const ordemRes2 = await fetch(
+                  `${INTERNAL_BASE}/api/pareceres/ordem-dia?sessao_id=${encodeURIComponent(ordem.id)}`,
+                  { headers: { 'x-internal-call': '1' } },
+                );
+
+                let materiaIds: string[] = [];
+                if (ordemRes2.ok) {
+                  const materias = await ordemRes2.json() as
+                    | { results?: SaplOrdemDiaMateria[] }
+                    | SaplOrdemDiaMateria[];
+                  const lista: SaplOrdemDiaMateria[] = Array.isArray(materias)
+                    ? materias
+                    : (materias.results ?? []);
+                  materiaIds = lista
+                    .map((m) => (m.id ? String(m.id) : null))
+                    .filter((id): id is string => !!id);
+                }
+
+                await db()
+                  .from('alia_task_queue')
+                  .insert({
+                    gabinete_id: gabineteId,
+                    tipo: 'gerar_parecer_ordem_dia',
+                    status: 'pendente',
+                    payload: {
+                      sessao_id: ordem.id,
+                      materia_ids: materiaIds,
+                      modelo: config.parecer_model,
+                      auto_generated: true,
+                    },
+                  });
+              } catch (autoErr) {
+                console.error('[sapl-watcher] erro ao criar tarefa automática:', autoErr);
+              }
+            }
           }
         }
       }

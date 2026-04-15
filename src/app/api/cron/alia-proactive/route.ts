@@ -28,10 +28,29 @@ export async function GET(req: Request) {
     const watcherNames = watcherParam ? watcherParam.split(',') : undefined;
     const result = await runWatchers(GABINETE_ID, watcherNames);
 
+    // ── Processar próxima tarefa da fila ──────────────────────────────────────
+    let tasksProcessed = 0;
+    try {
+      const taskRes = await fetch(
+        `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/alia/task/process`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` },
+        },
+      );
+      if (taskRes.ok) {
+        const taskData = await taskRes.json() as { task_id?: string };
+        if (taskData.task_id) tasksProcessed = 1;
+      }
+    } catch {
+      // silencioso — falha no processador não deve derrubar os watchers
+    }
+
     return NextResponse.json({
       ok: true,
       type: 'watchers',
       ...result,
+      tasks_processed: tasksProcessed,
       ran_at: new Date().toISOString(),
     });
   } catch (err) {
