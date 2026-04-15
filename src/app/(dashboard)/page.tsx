@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import styles from './page.module.css';
+import { PareceresAlertCards } from '@/components/pareceres-core/pareceres-alert-cards';
+import type { ParecerAlertas } from '@/components/pareceres-core/pareceres-alert-cards';
+import { COMISSOES_CMBV } from '@/lib/parecer/prompts-relator';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -27,6 +30,7 @@ interface DashboardSummary {
   cadin:        { updates_pendentes: number; aniversariantes_hoje: { nome: string; cargo: string | null }[] };
   agenda:       { eventos_hoje: { titulo: string; tipo: string; hora: string | null }[] };
   sessoes_sapl: { count: number; proxima: string | null };
+  parecer_alertas: ParecerAlertas | null;
 }
 
 // ─── Fetch de dados no servidor ───────────────────────────────────────────────
@@ -55,6 +59,9 @@ async function fetchSummary(): Promise<DashboardSummary> {
     aniversariantesRes,
     eventosRes,
     sessoesRes,
+    alertMateriasRes,
+    alertRascunhosRes,
+    alertPendenciasRes,
   ] = await Promise.allSettled([
     db.from('pareceres_historico')
       .select('sessao_str, data_sessao')
@@ -103,6 +110,23 @@ async function fetchSummary(): Promise<DashboardSummary> {
       .not('upload_pauta', 'is', null)
       .order('data_sessao', { ascending: false })
       .limit(5),
+
+    // 10. Matérias recentes no cache (para alertas de pareceres)
+    db.from('sapl_materias_cache')
+      .select('id, tramitacoes_json')
+      .eq('gabinete_id', GABINETE_ID)
+      .gte('last_synced_at', semanaAtras.toISOString()),
+
+    // 11. Rascunhos de relator (para excluir do count)
+    db.from('pareceres_relator')
+      .select('materia_id')
+      .eq('gabinete_id', GABINETE_ID),
+
+    // 12. Pareceres de comissão pendentes
+    db.from('comissao_pareceres')
+      .select('id, workflow_status, created_at, updated_at')
+      .eq('gabinete_id', GABINETE_ID)
+      .not('workflow_status', 'in', '("assinado","publicado")'),
   ]);
 
   const pareceres      = pareceresRes.status      === 'fulfilled' ? (pareceresRes.value.data      ?? []) : [];
@@ -114,12 +138,104 @@ async function fetchSummary(): Promise<DashboardSummary> {
   const aniversariantes = aniversariantesRes.status === 'fulfilled' ? (aniversariantesRes.value.data ?? []) : [];
   const eventos         = eventosRes.status          === 'fulfilled' ? (eventosRes.value.data         ?? []) : [];
   const sessoes         = sessoesRes.status           === 'fulfilled' ? (sessoesRes.value.data          ?? []) : [];
+  const alertMaterias   = alertMateriasRes.status     === 'fulfilled' ? (alertMateriasRes.value.data    ?? []) : [];
+  const alertRascunhos  = alertRascunhosRes.status    === 'fulfilled' ? (alertRascunhosRes.value.data   ?? []) : [];
+  const alertPendencias = alertPendenciasRes.status   === 'fulfilled' ? (alertPendenciasRes.value.data  ?? []) : [];
 
   let proximaSessao: string | null = null;
   if (sessoes.length > 0) {
     const s = sessoes[0] as { data_sessao: string; numero: number };
     const d = new Date(`${s.data_sessao}T12:00:00`);
     proximaSessao = `Sessão ${s.numero} — ${d.toLocaleDateString('pt-BR')}`;
+  }
+
+  // ── Alertas de pareceres ───────────────────────────────────────────────────
+  let parecer_alertas: ParecerAlertas | null = null;
+  {
+    // IDs de matérias que já têm rascunho de relator
+    const idsComRascunho = new Set(
+      alertRascunhos.map((r: { materia_id: number }) => r.materia_id),
+    );
+
+    // Contar matérias novas por comissão (via keywords nas tramitações)
+    const porComissaoMap = new Map<string, { sigla: string; nome: string; count: number }>();
+    for (const mat of alertMaterias as { id: number; tramitacoes_json: string | null }[]) {
+      if (idsComRascunho.has(mat.id)) continue;
+      const tramStr = mat.tramitacoes_json ?? '';
+      for (const comissao of COMISSOES_CMBV) {
+        const matched = comissao.keywords?.some((kw) =>
+          tramStr.toLowerCase().includes(kw.toLowerCase()),
+        );
+        if (matched) {
+          const existing = porComissaoMap.get(comissao.sigla);
+          if (existing) {
+            existing.count++;
+          } else {
+            porComissaoMap.set(comissao.sigla, {
+              sigla: comissao.sigla,
+              nome: comissao.nome,
+              count: 1,
+            });
+          }
+          break; // uma matéria conta apenas na primeira comissão que bater
+        }
+      }
+    }
+    const porComissao = Array.from(porComissaoMap.values()).sort((a, b) => b.count - a.count);
+    const totalMateriasNovas = porComissao.reduce((s, c) => s + c.count, 0);
+
+    // Ordem do dia: usar a sessão mais recente (já carregada)
+    let ordemDoDia: ParecerAlertas['ordem_do_dia'] = null;
+    if (sessoes.length > 0) {
+      const s = sessoes[0] as { data_sessao: string; numero: number };
+      // Contar matérias nessa sessão (simplificado: usar count de matérias no cache)
+      ordemDoDia = {
+        sessao_id: 0, // sem ID direto no cache, usar número como fallback
+        numero: String(s.numero),
+        data: s.data_sessao,
+        total_materias: alertMaterias.length,
+      };
+    }
+
+    // Pendências de comissão
+    const now = Date.now();
+    let emRascunho = 0;
+    let aguardandoAssinatura = 0;
+    let semParecer = 0;
+    let criticos = 0;
+    let maisAntigoDias = 0;
+
+    for (const p of alertPendencias as { id: number; workflow_status: string; created_at: string; updated_at: string }[]) {
+      if (p.workflow_status === 'rascunho') emRascunho++;
+      else if (p.workflow_status === 'aguardando_assinatura') aguardandoAssinatura++;
+      else semParecer++;
+
+      const dias = Math.floor((now - new Date(p.created_at).getTime()) / 86_400_000);
+      if (dias > maisAntigoDias) maisAntigoDias = dias;
+      if (dias > 7) criticos++;
+    }
+
+    const totalPendencias = alertPendencias.length;
+
+    // Montar alerta se houver algo relevante
+    if (totalMateriasNovas > 0 || ordemDoDia || totalPendencias > 0) {
+      parecer_alertas = {
+        materias_novas: {
+          total: totalMateriasNovas,
+          por_comissao: porComissao,
+          desde: semanaAtras.toISOString().split('T')[0],
+        },
+        ordem_do_dia: ordemDoDia,
+        pendencias: {
+          total: totalPendencias,
+          em_rascunho: emRascunho,
+          aguardando_assinatura: aguardandoAssinatura,
+          sem_parecer: semParecer,
+          criticos,
+          mais_antigo_dias: maisAntigoDias,
+        },
+      };
+    }
   }
 
   return {
@@ -150,6 +266,7 @@ async function fetchSummary(): Promise<DashboardSummary> {
       }),
     },
     sessoes_sapl: { count: sessoes.length, proxima: proximaSessao },
+    parecer_alertas,
   };
 }
 
@@ -190,19 +307,26 @@ export const dynamic = 'force-dynamic'; // sempre renderiza no servidor em runti
 
 export default async function DashboardPage() {
   const data = await fetchSummary();
-  const { pareceres, indicacoes, laia, cadin, agenda, sessoes_sapl } = data;
+  const { pareceres, indicacoes, laia, cadin, agenda, sessoes_sapl, parecer_alertas } = data;
 
-  const temAlertas = indicacoes.pendentes > 0 || laia.aguardando_humano > 0 || cadin.updates_pendentes > 0;
+  const temAlertas = indicacoes.pendentes > 0 || laia.aguardando_humano > 0 || cadin.updates_pendentes > 0 || parecer_alertas !== null;
   const temAniversariantes = cadin.aniversariantes_hoje.length > 0;
 
   return (
     <>
-      <Topbar title="Dashboard" subtitle="Visão geral do gabinete" />
+      <Topbar title="Gabinete Virtual" subtitle="Painel de gestão parlamentar" />
       <div className={styles.content}>
 
         {/* ── Barra de alertas (condicional) ─────────────────────────────── */}
         {temAlertas && (
           <section className={styles.alertBanner}>
+            {parecer_alertas && (
+              <PareceresAlertCards
+                dados={parecer_alertas}
+                modo="dashboard"
+                alertCardClass={styles.alertCard}
+              />
+            )}
             {indicacoes.pendentes > 0 && (
               <Link href="/indicacoes" className={styles.alertCard} style={{ '--alert-color': '#ef4444' } as React.CSSProperties}>
                 <AlertTriangle size={16} />
