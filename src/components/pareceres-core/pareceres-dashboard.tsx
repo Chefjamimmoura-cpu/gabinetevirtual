@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { FileText, Send, Loader2, Link2, BrainCircuit, Calendar, UploadCloud, Download, History, Shield, Search, Gavel, ExternalLink, CheckCircle2, Clock, ChevronRight, Building2, Users, Trash2, Eye, RefreshCw } from 'lucide-react';
+import { FileText, Send, Loader2, Link2, BrainCircuit, Calendar, UploadCloud, Download, History, Shield, Search, Gavel, ExternalLink, CheckCircle2, CheckCircle, Clock, ChevronRight, Building2, Users, Trash2, Eye, RefreshCw, FileWarning, Lightbulb, PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
 import styles from './pareceres-dashboard.module.css';
+import { ComissaoWizard } from './comissao/ComissaoWizard';
 import { PareceresModeracao } from './pareceres-moderacao';
 import { A4DocumentViewer } from '../ui/a4-document-viewer';
 import { LogoLoader } from '../ui/logo-loader';
@@ -35,6 +36,7 @@ interface MateriaFila {
   rascunho_em: string | null;
   ultima_tramitacao: string;
   status_tramitacao?: string;
+  data_tramitacao?: string;
   sapl_url: string;
 }
 
@@ -78,6 +80,20 @@ function getDataExtenso(dateString?: string): string {
 export default function PareceresDashboard() {
   const [abaPrincipal, setAbaPrincipal] = useState<'alia' | 'vereador' | 'relatoria' | 'comissao'>('vereador');
   const [activeTab, setActiveTab] = useState<'sessoes' | 'pdf' | 'link'>('sessoes');
+  const [itemToDelete, setItemToDelete] = useState<any>(null);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pareceres_panel_collapsed') === 'true';
+    }
+    return false;
+  });
+  const togglePanel = () => {
+    setIsPanelCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('pareceres_panel_collapsed', String(next));
+      return next;
+    });
+  };
 
   // States Globais
   const [isGenerating, setIsGenerating] = useState(false);
@@ -106,8 +122,7 @@ export default function PareceresDashboard() {
   const [selectedMaterias, setSelectedMaterias] = useState<any[]>([]);
 
   // Accordion States
-  const [isUltimasOpen, setIsUltimasOpen] = useState(true);
-  const [isDemaisOpen, setIsDemaisOpen] = useState(false);
+  // Accordions removidos — lista unificada de sessões (P3 UI/UX redesign)
   const [isOrdemDiaOpen, setIsOrdemDiaOpen] = useState(true);
   const [isHistoricoOpen, setIsHistoricoOpen] = useState(false);
 
@@ -123,6 +138,14 @@ export default function PareceresDashboard() {
   const [relatorResult, setRelatorResult] = useState<string | null>(null);
   const [relatorTitulo, setRelatorTitulo] = useState<string | null>(null);
   const [isGerandoRelator, setIsGerandoRelator] = useState(false);
+  const [relatorRagDocs, setRelatorRagDocs] = useState<{
+    procuradoria: { nome: string; url: string; data?: string; texto_extraido: boolean; trecho?: string }[];
+    comissoes: { nome: string; url: string; data?: string; texto_extraido: boolean; trecho?: string }[];
+    procuradoria_encontrada: boolean;
+    cljrf_encontrado: boolean;
+    total_docs_analisados: number;
+    total_texto_extraido: number;
+  } | null>(null);
   const [gabineteId, setGabineteId] = useState<string | null>(null);
   // Fila automática
   const [relatoriaFila, setRelatoriaFila] = useState<MateriaFila[]>([]);
@@ -186,7 +209,14 @@ export default function PareceresDashboard() {
       const res = await fetch(`/api/pareceres/relatoria/fila?comissao=${encodeURIComponent(comissao)}`);
       if (res.ok) {
         const data = await res.json();
-        setRelatoriaFila(data.materias || []);
+        // Ordena: PLLs/PLs primeiro (trâmite normal), PLEs ao final (urgência/executivo)
+        const materias = (data.materias || []) as MateriaFila[];
+        materias.sort((a: MateriaFila, b: MateriaFila) => {
+          const aPLE = a.tipo_sigla === 'PLE' ? 1 : 0;
+          const bPLE = b.tipo_sigla === 'PLE' ? 1 : 0;
+          return aPLE - bPLE;
+        });
+        setRelatoriaFila(materias);
       }
     } catch {
       // silent fallback — fila fica vazia
@@ -393,7 +423,7 @@ export default function PareceresDashboard() {
     const tipoStr = selectedComissaoMateria?.materia
       ? `${selectedComissaoMateria.materia.tipo_sigla} ${selectedComissaoMateria.materia.numero}/${selectedComissaoMateria.materia.ano}`
       : `Matéria #${id}`;
-    setComissaoTitulo(`Parecer_Comissao_${comissaoComissao}_${tipoStr.replace(/\s+/g,'_')}`);
+    setComissaoTitulo(`Parecer_${comissaoComissao}_${tipoStr.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}`);
     try {
       const res = await fetch('/api/pareceres/comissao/gerar', {
         method: 'POST',
@@ -414,7 +444,7 @@ export default function PareceresDashboard() {
     if (ids.length === 0) { alert('Selecione ao menos uma matéria para gerar a ATA.'); return; }
     setIsGerandoComissao(true);
     setAtaResult(null);
-    setComissaoTitulo(`ATA_${comissaoComissao}_${ids.length}_materias`);
+    setComissaoTitulo(`ATA_${comissaoComissao}_${new Date().toISOString().slice(0,10)}`);
     try {
       const res = await fetch('/api/pareceres/comissao/gerar', {
         method: 'POST',
@@ -464,7 +494,7 @@ export default function PareceresDashboard() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${tipo === 'comissao' ? comissaoTitulo || `Parecer_Comissao_${comissaoComissao}` : `ATA_${comissaoComissao}`}.docx`;
+      a.download = `${(comissaoTitulo || (tipo === 'comissao' ? `Parecer_${comissaoComissao}` : `ATA_${comissaoComissao}_${new Date().toISOString().slice(0,10)}`)).replace(/[^a-z0-9_-]/gi, '_')}.docx`;
       document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
@@ -517,7 +547,7 @@ export default function PareceresDashboard() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${tipo === 'comissao' ? comissaoTitulo || `Parecer_Comissao_${comissaoComissao}` : `ATA_${comissaoComissao}`}.odt`;
+      a.download = `${(comissaoTitulo || (tipo === 'comissao' ? `Parecer_${comissaoComissao}` : `ATA_${comissaoComissao}_${new Date().toISOString().slice(0,10)}`)).replace(/[^a-z0-9_-]/gi, '_')}.odt`;
       document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
@@ -576,13 +606,14 @@ export default function PareceresDashboard() {
     fetchHistorico();
   }, []);
 
-  // Polling a cada 10 minutos para buscar novidades no SAPL
-  useEffect(() => {
-    const interval = setInterval(() => {
-      handleSincronizarSapl(true);
-    }, 10 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // Polling SAPL desativado — contingência para reduzir requests automáticos.
+  // Sync agora é 100% manual via botão "Sincronizar SAPL" na interface.
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     handleSincronizarSapl(true);
+  //   }, 10 * 60 * 1000);
+  //   return () => clearInterval(interval);
+  // }, []);
 
   const handleSincronizarSapl = async (isAuto = false) => {
     if (!isAuto) setIsLoadingSessoes(true);
@@ -804,16 +835,17 @@ export default function PareceresDashboard() {
     }
   };
 
-  const handleGerarRelator = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleGerarRelator = async (modo: 'autonomo' | 'forcar_favoravel' | 'forcar_contrario' = 'autonomo') => {
     const id = selectedMateriaFila?.id ?? parseInt(relatorBuscarId, 10);
     if (!id || !relatorNome.trim()) return;
     setIsGerandoRelator(true);
     setRelatorResult(null);
+    setRelatorRagDocs(null);
     const tipoStr = materiaContexto?.materia
       ? `${materiaContexto.materia.tipo_sigla} ${materiaContexto.materia.numero}/${materiaContexto.materia.ano}`
       : `Matéria #${id}`;
-    setRelatorTitulo(`Relatoria ${relatorComissao} — ${tipoStr}`);
+    const modoLabel = modo === 'forcar_favoravel' ? ' [FAVORÁVEL]' : modo === 'forcar_contrario' ? ' [CONTRÁRIO]' : '';
+    setRelatorTitulo(`Relatoria ${relatorComissao} — ${tipoStr}${modoLabel}`);
     try {
       const res = await fetch('/api/pareceres/gerar-relator', {
         method: 'POST',
@@ -825,12 +857,14 @@ export default function PareceresDashboard() {
           voto: relatorVoto,
           model: modelType,
           gabinete_id: gabineteId,
+          modo,
         }),
       });
       const data = await res.json();
       if (res.ok) {
         setRelatorResult(data.parecer_relator);
-        setRelatorTitulo(`Relatoria ${data.commission} — ${data.materia_tipo}`);
+        setRelatorTitulo(`Relatoria ${data.commission} — ${data.materia_tipo}${modoLabel}`);
+        if (data.rag_docs) setRelatorRagDocs(data.rag_docs);
       } else {
         setRelatorResult(`**ERRO:** ${data.error || 'Falha ao gerar parecer de relator.'}`);
       }
@@ -1050,25 +1084,28 @@ export default function PareceresDashboard() {
       </header>
 
       {/* Navegação por abas principais */}
-      <div style={{ display: 'flex', gap: '4px', borderBottom: '2px solid #e5e7eb', marginBottom: '20px' }}>
+      <div role="tablist" aria-label="Seções do Painel de Pareceres" style={{ display: 'flex', gap: '4px', borderBottom: '2px solid #e5e7eb', marginBottom: '20px' }}>
         {[
-          { id: 'alia',      label: <div style={{display:'flex',alignItems:'center',gap:'8px'}}><Shield size={16}/> ALIA</div>,        title: 'Triagem de pautas identificadas por IA' },
-          { id: 'vereador',  label: <div style={{display:'flex',alignItems:'center',gap:'8px'}}><Search size={16}/> Vereador</div>,    title: 'Parecer do Vereador — Ordem do Dia, PDF ou Link' },
-          { id: 'relatoria', label: <div style={{display:'flex',alignItems:'center',gap:'8px'}}><Gavel size={16}/> Relatoria</div>,   title: 'Parecer do Relator de Comissão' },
-          { id: 'comissao',  label: <div style={{display:'flex',alignItems:'center',gap:'8px'}}><Building2 size={16}/> Comissão</div>, title: 'Parecer da Comissão + ATA da Reunião' },
+          { id: 'alia',      label: <span style={{display:'flex',alignItems:'center',gap:'8px'}}><Shield size={16}/> ALIA</span>,        title: 'Triagem de pautas identificadas por IA' },
+          { id: 'vereador',  label: <span style={{display:'flex',alignItems:'center',gap:'8px'}}><Search size={16}/> Discussão e Votação</span>,    title: 'Discussão e Votação — Ordem do Dia, PDF ou Link' },
+          { id: 'relatoria', label: <span style={{display:'flex',alignItems:'center',gap:'8px'}}><Gavel size={16}/> Relatoria</span>,   title: 'Parecer do Relator de Comissão' },
+          { id: 'comissao',  label: <span style={{display:'flex',alignItems:'center',gap:'8px'}}><Building2 size={16}/> Comissão</span>, title: 'Parecer da Comissão + ATA da Reunião' },
         ].map(aba => (
           <button
             key={aba.id}
+            role="tab"
+            aria-selected={abaPrincipal === aba.id}
+            aria-controls={`tabpanel-${aba.id}`}
             title={aba.title}
             onClick={() => setAbaPrincipal(aba.id as 'alia' | 'vereador' | 'relatoria' | 'comissao')}
             style={{
               padding: '8px 20px',
               border: 'none',
-              borderBottom: abaPrincipal === aba.id ? '3px solid #d946ef' : '3px solid transparent',
+              borderBottom: abaPrincipal === aba.id ? '3px solid var(--primary-600, #1c4076)' : '3px solid transparent',
               background: 'none',
               cursor: 'pointer',
               fontWeight: abaPrincipal === aba.id ? 700 : 500,
-              color: abaPrincipal === aba.id ? '#d946ef' : '#6b7280',
+              color: abaPrincipal === aba.id ? 'var(--primary-700, #1c4076)' : '#6b7280',
               fontSize: '0.9rem',
               marginBottom: '-2px',
               transition: 'color 0.15s',
@@ -1113,17 +1150,9 @@ export default function PareceresDashboard() {
                         </div>
                         <button
                           title="Deletar parecer"
-                          onClick={async (e) => {
+                          onClick={(e) => {
                             e.stopPropagation();
-                            if (!confirm('Tem certeza que deseja deletar este parecer do histórico?')) return;
-                            try {
-                              const res = await fetch(`/api/pareceres/historico?id=${h.id}`, { method: 'DELETE' });
-                              if (res.ok) {
-                                setHistorico(prev => prev.filter((item: any) => item.id !== h.id));
-                              } else {
-                                alert('Falha ao deletar.');
-                              }
-                            } catch { alert('Erro de rede ao deletar.'); }
+                            setItemToDelete(h);
                           }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#9ca3af', borderRadius: '4px', transition: 'color 0.15s' }}
                           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
@@ -1291,16 +1320,42 @@ export default function PareceresDashboard() {
             )}
           </div>
 
+          {/* Alarme Pegajoso de Pendências */}
+          {relatoriaFila.some(m => m.status_relatoria === 'sem_rascunho' && m.tipo_sigla !== 'PLE') && (
+            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecdd3', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', position: 'sticky', top: '0', zIndex: 10 }}>
+              <span style={{ fontSize: '1.4rem' }}>🚨</span>
+              <div style={{ flex: 1 }}>
+                <h4 style={{ margin: 0, fontSize: '0.88rem', color: '#991b1b', fontWeight: 700 }}>Atenção: Matérias Pendentes!</h4>
+                <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: '#b91c1c' }}>Você possui <strong>{relatoriaFila.filter(m => m.status_relatoria === 'sem_rascunho' && m.tipo_sigla !== 'PLE').length} matéria(s)</strong> aguardando análise e geração de parecer na comissão <strong>{relatorComissao}</strong>.</p>
+              </div>
+            </div>
+          )}
+          {relatoriaFila.some(m => m.tipo_sigla === 'PLE') && (
+            <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.1rem' }}>⚡</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: '#92400e' }}><strong>{relatoriaFila.filter(m => m.tipo_sigla === 'PLE').length} PLE(s)</strong> na fila — Projetos do Executivo geralmente são apreciados com urgência em sessão (parecer oral).</p>
+              </div>
+            </div>
+          )}
+
           {/* Grid dos 3 painéis */}
           <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 380px', gap: '12px', minHeight: '600px', alignItems: 'start' }}>
 
             {/* PAINEL ESQUERDO — Fila */}
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', background: '#fafafa' }}>
-              <div style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', background: '#fff' }}>
+              <div style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Fila — {relatorComissao}
                 </span>
-                {relatoriaFilaLoading && <Loader2 size={13} style={{ float: 'right', marginTop: '2px', color: '#94a3b8' }} className={styles.spinIcon} />}
+                <button
+                  onClick={() => loadRelatoriaFila(relatorComissao)}
+                  disabled={relatoriaFilaLoading}
+                  title="Atualizar fila do SAPL"
+                  style={{ background: 'none', border: 'none', cursor: relatoriaFilaLoading ? 'wait' : 'pointer', padding: '2px', color: '#6b7280', display: 'flex', alignItems: 'center' }}
+                >
+                  {relatoriaFilaLoading ? <Loader2 size={14} className={styles.spinIcon} /> : <RefreshCw size={14} />}
+                </button>
               </div>
               <div style={{ maxHeight: '580px', overflowY: 'auto' }}>
                 {!relatoriaFilaLoading && relatoriaFila.length === 0 && (
@@ -1310,7 +1365,13 @@ export default function PareceresDashboard() {
                     <p style={{ margin: '4px 0 0', fontSize: '0.73rem' }}>Use "Buscar por ID" para localizar uma matéria específica.</p>
                   </div>
                 )}
-                {relatoriaFila.map(m => (
+                {relatoriaFila.map((m, idx) => (<>
+                  {/* Separador entre matérias normais e PLEs */}
+                  {m.tipo_sigla === 'PLE' && idx > 0 && relatoriaFila[idx - 1]?.tipo_sigla !== 'PLE' && (
+                    <div key={`sep-ple-${m.id}`} style={{ padding: '6px 12px', background: '#fffbeb', borderBottom: '1px solid #fde68a', fontSize: '0.68rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      ⚡ Projetos do Executivo (urgência)
+                    </div>
+                  )}
                   <button
                     key={m.id}
                     onClick={() => handleSelecionarMateriaFila(m)}
@@ -1327,10 +1388,26 @@ export default function PareceresDashboard() {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '4px' }}>
-                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1c4076' }}>
-                        {m.tipo_sigla} {m.numero}/{m.ano}
-                      </span>
-                      {m.status_relatoria === 'rascunho_gerado' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: m.tipo_sigla === 'PLE' ? '#92400e' : '#1c4076' }}>
+                            {m.tipo_sigla} {m.numero}/{m.ano}
+                          </span>
+                          {m.tipo_sigla === 'PLE' && (
+                            <span style={{ fontSize: '0.58rem', fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '1px 4px', borderRadius: '3px', lineHeight: 1.3, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                              ⚡ Executivo
+                            </span>
+                          )}
+                        </div>
+                        {m.data_tramitacao && (
+                          <span style={{ fontSize: '0.65rem', color: '#475569', background: '#f1f5f9', padding: '2px 5px', borderRadius: '4px', width: 'fit-content' }}>
+                            Data SAPL: {formatarDatasBR(m.data_tramitacao)}
+                          </span>
+                        )}
+                      </div>
+                      {m.tipo_sigla === 'PLE' ? (
+                        <span title="PLE — geralmente apreciado com urgência em sessão" style={{ fontSize: '0.7rem', flexShrink: 0, marginTop: '1px' }}>⚡</span>
+                      ) : m.status_relatoria === 'rascunho_gerado' ? (
                         <CheckCircle2 size={14} color="#15803d" style={{ flexShrink: 0, marginTop: '1px' }} />
                       ) : (
                         <Clock size={14} color="#9ca3af" style={{ flexShrink: 0, marginTop: '1px' }} />
@@ -1346,7 +1423,8 @@ export default function PareceresDashboard() {
                       </span>
                     )}
                   </button>
-                ))}
+                </>))}
+
                 {selectedMateriaFila && !relatoriaFila.find(m => m.id === selectedMateriaFila.id) && (
                   <div style={{ padding: '10px 12px', borderBottom: '1px solid #f3f4f6', background: '#eff6ff', borderLeft: '3px solid #1c4076' }}>
                     <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1c4076' }}>
@@ -1382,9 +1460,16 @@ export default function PareceresDashboard() {
                   <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e7eb', background: '#f8fafc' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                       <div>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1c4076', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {materiaContexto.materia.tipo_sigla} {materiaContexto.materia.numero}/{materiaContexto.materia.ano}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: materiaContexto.materia.tipo_sigla === 'PLE' ? '#92400e' : '#1c4076', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {materiaContexto.materia.tipo_sigla} {materiaContexto.materia.numero}/{materiaContexto.materia.ano}
+                          </span>
+                          {materiaContexto.materia.tipo_sigla === 'PLE' && (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>
+                              ⚡ Executivo — votação com urgência
+                            </span>
+                          )}
+                        </div>
                         <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: '#374151', lineHeight: 1.4 }}>
                           {materiaContexto.materia.ementa}
                         </p>
@@ -1468,6 +1553,81 @@ export default function PareceresDashboard() {
                         )}
                       </div>
                     </div>
+
+                    {/* Painel RAG — documentos analisados pela IA */}
+                    {relatorRagDocs && (
+                      <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+                        <p style={{ margin: '0 0 8px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span>🔍</span> Documentos analisados pela IA
+                        </p>
+
+                        {/* Indicadores de alerta rápido */}
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 600,
+                            background: relatorRagDocs.procuradoria_encontrada ? '#dcfce7' : '#fee2e2',
+                            color: relatorRagDocs.procuradoria_encontrada ? '#15803d' : '#b91c1c' }}>
+                            {relatorRagDocs.procuradoria_encontrada ? '✓' : '✗'} Procuradoria
+                          </span>
+                          <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 600,
+                            background: relatorRagDocs.cljrf_encontrado ? '#dcfce7' : '#fee2e2',
+                            color: relatorRagDocs.cljrf_encontrado ? '#15803d' : '#b91c1c' }}>
+                            {relatorRagDocs.cljrf_encontrado ? '✓' : '✗'} CLJRF
+                          </span>
+                          <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 600,
+                            background: '#f0f9ff', color: '#0369a1' }}>
+                            {relatorRagDocs.total_texto_extraido}/{relatorRagDocs.total_docs_analisados} com texto extraído
+                          </span>
+                        </div>
+
+                        {/* Lista de docs da Procuradoria */}
+                        {relatorRagDocs.procuradoria.length > 0 && (
+                          <div style={{ marginBottom: '8px' }}>
+                            <p style={{ margin: '0 0 4px', fontSize: '0.69rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Procuradoria</p>
+                            {relatorRagDocs.procuradoria.map((d, i) => (
+                              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '4px 6px',
+                                background: '#f9fafb', borderRadius: '5px', marginBottom: '3px', fontSize: '0.74rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ color: '#374151', flex: 1 }}>{d.nome}</span>
+                                  <span style={{ fontSize: '0.67rem', padding: '1px 5px', borderRadius: '999px', flexShrink: 0,
+                                    background: d.texto_extraido ? '#dcfce7' : '#fef3c7',
+                                    color: d.texto_extraido ? '#15803d' : '#92400e' }}>
+                                    {d.texto_extraido ? 'Texto OK' : 'PDF imagem'}
+                                  </span>
+                                </div>
+                                {d.url && <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontSize: '0.67rem', textDecoration: 'underline' }}>Ver no SAPL</a>}
+                                {d.trecho && <span style={{ color: '#6b7280', fontSize: '0.67rem', fontStyle: 'italic', borderLeft: '2px solid #d1d5db', paddingLeft: '6px', marginTop: '2px' }}>{d.trecho.slice(0, 200)}…</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Lista de docs de Comissões */}
+                        {relatorRagDocs.comissoes.length > 0 && (
+                          <div>
+                            <p style={{ margin: '0 0 4px', fontSize: '0.69rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Comissões</p>
+                            {relatorRagDocs.comissoes.map((d, i) => (
+                              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '4px 6px',
+                                background: '#f9fafb', borderRadius: '5px', marginBottom: '3px', fontSize: '0.74rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ color: '#374151', flex: 1 }}>{d.nome}</span>
+                                  <span style={{ fontSize: '0.67rem', padding: '1px 5px', borderRadius: '999px', flexShrink: 0,
+                                    background: d.texto_extraido ? '#dcfce7' : '#fef3c7',
+                                    color: d.texto_extraido ? '#15803d' : '#92400e' }}>
+                                    {d.texto_extraido ? 'Texto OK' : 'PDF imagem'}
+                                  </span>
+                                </div>
+                                {d.url && <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontSize: '0.67rem', textDecoration: 'underline' }}>Ver no SAPL</a>}
+                                {d.trecho && <span style={{ color: '#6b7280', fontSize: '0.67rem', fontStyle: 'italic', borderLeft: '2px solid #d1d5db', paddingLeft: '6px', marginTop: '2px' }}>{d.trecho.slice(0, 200)}…</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {relatorRagDocs.total_docs_analisados === 0 && (
+                          <p style={{ fontSize: '0.74rem', color: '#9ca3af', margin: 0 }}>Nenhum documento acessório encontrado para esta matéria.</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1515,8 +1675,9 @@ export default function PareceresDashboard() {
                     </div>
                   </div>
 
+                  {/* Botão principal — análise autônoma */}
                   <button
-                    onClick={() => handleGerarRelator()}
+                    onClick={() => handleGerarRelator('autonomo')}
                     className={styles.generateButton}
                     disabled={isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila}
                   >
@@ -1526,6 +1687,44 @@ export default function PareceresDashboard() {
                       <><Gavel size={17} /> Analisar pela Atribuição da Comissão</>
                     )}
                   </button>
+
+                  {/* Botões de voto direcionado — FAVORÁVEL e CONTRÁRIO */}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleGerarRelator('forcar_favoravel')}
+                      disabled={isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila}
+                      style={{
+                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                        padding: '9px 12px', borderRadius: '8px', border: '1.5px solid #16a34a', cursor: 'pointer',
+                        background: isGerandoRelator ? '#f0fdf4' : '#fff', color: '#15803d',
+                        fontWeight: 700, fontSize: '0.8rem', transition: 'all 0.15s',
+                        opacity: (isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila) ? 0.5 : 1,
+                      }}
+                      onMouseEnter={e => { if (!isGerandoRelator) { e.currentTarget.style.background = '#dcfce7'; } }}
+                      onMouseLeave={e => { e.currentTarget.style.background = isGerandoRelator ? '#f0fdf4' : '#fff'; }}
+                    >
+                      <CheckCircle size={15} /> FAVORÁVEL
+                    </button>
+                    <button
+                      onClick={() => handleGerarRelator('forcar_contrario')}
+                      disabled={isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila}
+                      style={{
+                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                        padding: '9px 12px', borderRadius: '8px', border: '1.5px solid #dc2626', cursor: 'pointer',
+                        background: isGerandoRelator ? '#fef2f2' : '#fff', color: '#b91c1c',
+                        fontWeight: 700, fontSize: '0.8rem', transition: 'all 0.15s',
+                        opacity: (isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila) ? 0.5 : 1,
+                      }}
+                      onMouseEnter={e => { if (!isGerandoRelator) { e.currentTarget.style.background = '#fee2e2'; } }}
+                      onMouseLeave={e => { e.currentTarget.style.background = isGerandoRelator ? '#fef2f2' : '#fff'; }}
+                    >
+                      <FileWarning size={15} /> CONTRÁRIO
+                    </button>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.67rem', color: '#9ca3af', textAlign: 'center', lineHeight: 1.4 }}>
+                    Os botões acima direcionam o voto — a IA buscará os melhores fundamentos jurídicos para sustentá-lo.
+                  </p>
+
                   {!selectedMateriaFila && (
                     <p style={{ margin: 0, fontSize: '0.74rem', color: '#9ca3af', textAlign: 'center' }}>
                       Selecione uma matéria na fila ou use "Buscar por ID"
@@ -1584,447 +1783,38 @@ export default function PareceresDashboard() {
           </div>
         </div>
       ) : abaPrincipal === 'comissao' ? (
-        /* ── ABA COMISSÃO — Parecer da Comissão + ATA ─────────────── */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0', minHeight: 0 }}>
-
-          {/* Sub-tabs comissões + busca */}
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center', borderBottom: '1px solid #e5e7eb', marginBottom: '16px', flexWrap: 'wrap' }}>
-            {comissoesDisponiveis.map(c => (
-              <button key={c.sigla} onClick={() => { setComissaoComissao(c.sigla); setComissaoResult(null); setAtaResult(null); setAtaSelectedIds(new Set()); }}
-                style={{ padding: '6px 14px', border: 'none', borderBottom: comissaoComissao === c.sigla ? '3px solid #7c3aed' : '3px solid transparent',
-                  background: 'none', cursor: 'pointer', fontWeight: comissaoComissao === c.sigla ? 700 : 500,
-                  color: comissaoComissao === c.sigla ? '#7c3aed' : '#6b7280', fontSize: '0.85rem', marginBottom: '-1px', whiteSpace: 'nowrap',
-                  display: 'flex', alignItems: 'center', gap: '4px' }}
-                title={`${c.nome}${c.meu_cargo ? ` — ${c.meu_cargo}` : ''}`}>
-                {c.sigla}
-                {c.meu_cargo && c.meu_cargo !== 'acesso_geral' && (
-                  <span style={{
-                    width: '7px', height: '7px', borderRadius: '50%', display: 'inline-block',
-                    background: c.meu_cargo === 'presidente' ? '#15803d' : c.meu_cargo === 'vice-presidente' ? '#1d4ed8' : '#94a3b8',
-                  }} title={c.meu_cargo} />
-                )}
-              </button>
-            ))}
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <button onClick={() => setComissaoBuscarIdMode(b => !b)}
-                style={{ padding: '5px 12px', border: '1px solid #d1d5db', borderRadius: '6px',
-                  background: comissaoBuscarIdMode ? '#7c3aed' : '#fff', color: comissaoBuscarIdMode ? '#fff' : '#374151',
-                  fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <Link2 size={13} /> Buscar por ID
-              </button>
-            </div>
-            {comissaoBuscarIdMode && (
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end', width: '100%', paddingTop: '6px' }}>
-                <input type="text" placeholder="PLL 32/2026 ou ID" value={comissaoMateriaId}
-                  onChange={e => setComissaoMateriaId(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleComissaoBuscarPorId()}
-                  style={{ width: '160px', padding: '5px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem' }}
-                  autoFocus />
-                <button onClick={handleComissaoBuscarPorId}
-                  style={{ padding: '5px 12px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.82rem' }}>
-                  Buscar
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Grade 3 painéis */}
-          <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 380px', gap: '12px', minHeight: '600px', alignItems: 'start' }}>
-
-            {/* PAINEL ESQUERDO — Fila */}
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', background: '#fafafa' }}>
-              <div style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Fila — {comissaoComissao}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {comissaoFila.length > 0 && (
-                    <button
-                      onClick={() => {
-                        if (ataSelectedIds.size === comissaoFila.length) {
-                          setAtaSelectedIds(new Set());
-                        } else {
-                          setAtaSelectedIds(new Set(comissaoFila.map(m => m.id)));
-                        }
-                      }}
-                      style={{ padding: '3px 8px', border: '1px solid #d1d5db', borderRadius: '5px',
-                        background: ataSelectedIds.size === comissaoFila.length ? '#f0fdf4' : '#fff',
-                        color: ataSelectedIds.size === comissaoFila.length ? '#15803d' : '#6b7280',
-                        fontSize: '0.68rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                      title={ataSelectedIds.size === comissaoFila.length ? 'Desmarcar todas' : 'Selecionar todas para ATA'}>
-                      {ataSelectedIds.size === comissaoFila.length ? '✓ Todas' : '☐ Todas'}
-                    </button>
-                  )}
-                  {comissaoFilaLoading && <Loader2 size={13} style={{ color: '#94a3b8' }} className={styles.spinIcon} />}
-                </div>
-              </div>
-              <div style={{ maxHeight: '580px', overflowY: 'auto' }}>
-                {!comissaoFilaLoading && comissaoFila.length === 0 && (
-                  <div style={{ padding: '24px 12px', textAlign: 'center', color: '#9ca3af', fontSize: '0.8rem' }}>
-                    <Building2 size={28} color="#d1d5db" style={{ marginBottom: '8px' }} />
-                    <p style={{ margin: 0 }}>Nenhuma matéria na fila.</p>
-                    <p style={{ margin: '4px 0 0', fontSize: '0.73rem' }}>Use "Buscar por ID" para localizar.</p>
-                  </div>
-                )}
-                {comissaoFila.map(m => (
-                  <div key={m.id} style={{ display: 'flex', alignItems: 'flex-start', borderBottom: '1px solid #f3f4f6',
-                    background: selectedComissaoMateriaFila?.id === m.id ? '#f5f3ff' : '#fff',
-                    borderLeft: selectedComissaoMateriaFila?.id === m.id ? '3px solid #7c3aed' : '3px solid transparent' }}>
-                    {/* Checkbox para ATA */}
-                    <label style={{ display: 'flex', alignItems: 'center', padding: '10px 4px 10px 8px', cursor: 'pointer' }}
-                      title="Selecionar para ATA" onClick={e => e.stopPropagation()}>
-                      <input type="checkbox"
-                        checked={ataSelectedIds.has(m.id)}
-                        onChange={() => toggleAtaMateriaSelection(m.id)}
-                        style={{ accentColor: '#7c3aed', cursor: 'pointer', width: '14px', height: '14px' }} />
-                    </label>
-                    <button onClick={() => { setSelectedComissaoMateriaFila(m); setComissaoResult(null); setAtaResult(null); loadComissaoContexto(m.id); }}
-                      style={{ display: 'block', flex: 1, padding: '10px 12px 10px 4px', border: 'none',
-                        background: 'transparent', cursor: 'pointer', textAlign: 'left' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '4px' }}>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#7c3aed' }}>{m.tipo_sigla} {m.numero}/{m.ano}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                          {m.status_tramitacao && (m.status_tramitacao.toLowerCase().includes('relatoria') || m.status_tramitacao.toLowerCase().includes('relator') || m.status_tramitacao.toLowerCase().includes('gabinete')) && (
-                            <span style={{ fontSize: '0.6rem', fontWeight: 700, background: '#fef3c7', color: '#92400e',
-                              padding: '1px 6px', borderRadius: '10px', whiteSpace: 'nowrap' }}
-                              title="Matéria distribuída a relator">
-                              Em Relatoria
-                            </span>
-                          )}
-                          {m.status_relatoria === 'rascunho_gerado'
-                            ? <CheckCircle2 size={14} color="#15803d" style={{ flexShrink: 0, marginTop: '1px' }} />
-                            : <Clock size={14} color="#9ca3af" style={{ flexShrink: 0, marginTop: '1px' }} />}
-                        </div>
-                      </div>
-                      <p style={{ margin: '3px 0 0', fontSize: '0.72rem', color: '#6b7280', lineHeight: 1.3,
-                        overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                        {m.ementa || '(sem ementa)'}
-                      </p>
-                    </button>
-                  </div>
-                ))}
-                {selectedComissaoMateriaFila && !comissaoFila.find(m => m.id === selectedComissaoMateriaFila.id) && (
-                  <div style={{ padding: '10px 12px', borderBottom: '1px solid #f3f4f6', background: '#f5f3ff', borderLeft: '3px solid #7c3aed' }}>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#7c3aed' }}>Matéria #{selectedComissaoMateriaFila.id}</span>
-                    <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: '#6b7280' }}>
-                      {selectedComissaoMateria?.materia?.ementa?.substring(0, 80) || 'Carregando...'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* PAINEL CENTRAL — Contexto */}
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', background: '#fff', overflow: 'hidden' }}>
-              {!selectedComissaoMateriaFila && !comissaoContextoLoading && (
-                <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9ca3af' }}>
-                  <ChevronRight size={36} color="#d1d5db" />
-                  <p style={{ margin: '8px 0 0', fontSize: '0.85rem' }}>Selecione uma matéria na fila para ver o contexto.</p>
-                </div>
-              )}
-              {comissaoContextoLoading && (
-                <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-                  <Loader2 size={32} color="#94a3b8" className={styles.spinIcon} />
-                  <p style={{ color: '#9ca3af', fontSize: '0.85rem', marginTop: '12px' }}>Buscando dados no SAPL...</p>
-                </div>
-              )}
-              {selectedComissaoMateria && !comissaoContextoLoading && (
-                <div>
-                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e7eb', background: '#f8fafc' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                      <div>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {selectedComissaoMateria.materia.tipo_sigla} {selectedComissaoMateria.materia.numero}/{selectedComissaoMateria.materia.ano}
-                        </span>
-                        <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: '#374151', lineHeight: 1.4 }}>{selectedComissaoMateria.materia.ementa}</p>
-                        <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: '#6b7280' }}>Autor: {selectedComissaoMateria.materia.autores || '—'}</p>
-                      </div>
-                      <a href={selectedComissaoMateria.materia.sapl_url} target="_blank" rel="noopener noreferrer"
-                        style={{ flexShrink: 0, padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: '6px',
-                          background: '#fff', color: '#374151', fontSize: '0.75rem', display: 'flex', alignItems: 'center',
-                          gap: '4px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                        <ExternalLink size={12} /> SAPL
-                      </a>
-                    </div>
-                  </div>
-                  <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {selectedComissaoMateria.procuradoria.voto && (
-                      <div>
-                        <p style={{ margin: '0 0 6px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Procuradoria</p>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 700,
-                          color: selectedComissaoMateria.procuradoria.voto === 'FAVORÁVEL' ? '#15803d' : '#b91c1c' }}>
-                          {selectedComissaoMateria.procuradoria.voto === 'FAVORÁVEL' ? '✓' : '✗'} {selectedComissaoMateria.procuradoria.voto}
-                        </span>
-                      </div>
-                    )}
-                    {selectedComissaoMateria.outras_comissoes.length > 0 && (
-                      <div>
-                        <p style={{ margin: '0 0 6px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pareceres de outras comissões</p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {selectedComissaoMateria.outras_comissoes.map((oc, i) => (
-                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 10px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                              <span style={{ fontSize: '0.78rem', color: '#374151' }}>{oc.comissao}</span>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: oc.voto.includes('FAVORÁVEL') ? '#15803d' : oc.voto.includes('CONTRÁRIO') ? '#b91c1c' : '#92400e' }}>{oc.voto}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <div>
-                      <p style={{ margin: '0 0 6px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tramitações recentes</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '220px', overflowY: 'auto' }}>
-                        {selectedComissaoMateria.tramitacoes.slice(0, 8).map((t, i) => (
-                          <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '0.76rem', padding: '4px 0', borderBottom: '1px solid #f3f4f6' }}>
-                            <span style={{ color: '#9ca3af', flexShrink: 0, width: '72px' }}>{t.data}</span>
-                            <span style={{ color: '#374151', lineHeight: 1.35 }}>{t.texto}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* PAINEL DIREITO — Formulário + Resultados */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
-              {/* Card — Info da Comissão */}
-              {(() => {
-                const c = comissoesDisponiveis.find(x => x.sigla === comissaoComissao);
-                if (!c) return null;
-                const cargoBadge = (cargo: string) => {
-                  const map: Record<string, { bg: string; color: string; label: string }> = {
-                    presidente:    { bg: '#ede9fe', color: '#5b21b6', label: 'Presidente' },
-                    'vice-presidente': { bg: '#dbeafe', color: '#1d4ed8', label: 'Vice' },
-                    membro:        { bg: '#f1f5f9', color: '#475569', label: 'Membro' },
-                    suplente:      { bg: '#f8fafc', color: '#94a3b8', label: 'Suplente' },
-                  };
-                  return map[cargo.toLowerCase()] ?? { bg: '#f1f5f9', color: '#475569', label: cargo };
-                };
-                return (
-                  <div style={{ border: '1px solid #ede9fe', borderRadius: '10px', background: '#faf5ff', overflow: 'hidden' }}>
-                    {/* Cabeçalho */}
-                    <div style={{ padding: '12px 14px', borderBottom: '1px solid #ede9fe', background: '#fff', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                      <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Building2 size={18} color="#fff" />
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#5b21b6' }}>{c.sigla}</span>
-                          {c.artigoRegimento && (
-                            <span style={{ fontSize: '0.67rem', background: '#ede9fe', color: '#6d28d9', padding: '2px 7px', borderRadius: '20px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                              {c.artigoRegimento.split(' ').slice(0, 3).join(' ')}
-                            </span>
-                          )}
-                        </div>
-                        <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: '#6b7280', lineHeight: 1.35 }}>{c.nome}</p>
-                      </div>
-                    </div>
-
-                    {/* Área e Lei */}
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid #ede9fe', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      <p style={{ margin: 0, fontSize: '0.71rem', color: '#374151', lineHeight: 1.4 }}>
-                        <span style={{ fontWeight: 600, color: '#5b21b6' }}>Competência: </span>{c.area}
-                      </p>
-                      {c.link_lei && (
-                        <a href={c.link_lei} target="_blank" rel="noopener noreferrer"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.71rem', color: '#7c3aed', textDecoration: 'none', fontWeight: 600 }}>
-                          <ExternalLink size={11} /> Ver resolução no SAPL
-                        </a>
-                      )}
-                    </div>
-
-                    {/* Membros */}
-                    <div style={{ padding: '10px 14px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <Users size={12} /> Membros
-                        </span>
-                        {comissaoInfoLoading && <Loader2 size={12} color="#94a3b8" className={styles.spinIcon} />}
-                      </div>
-                      {!comissaoInfoLoading && comissaoInfoMembros.length === 0 && (
-                        <p style={{ margin: 0, fontSize: '0.71rem', color: '#94a3b8', fontStyle: 'italic' }}>
-                          {c.sapl_unit_id ? 'Carregando membros...' : 'Composição não disponível no SAPL.'}
-                        </p>
-                      )}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {comissaoInfoMembros.map((m, i) => {
-                          const badge = cargoBadge(m.cargo);
-                          return (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 8px', background: '#fff', borderRadius: '6px', border: '1px solid #ede9fe' }}>
-                              <span style={{ fontSize: '0.75rem', color: '#1f2937', fontWeight: 500 }}>Ver. {m.nome}</span>
-                              <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: badge.bg, color: badge.color, whiteSpace: 'nowrap' }}>
-                                {badge.label}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* ── CARD: Parecer da Comissão ── */}
-              <div className={styles.formCard}>
-                <h3 style={{ margin: '0 0 12px', fontSize: '0.95rem', fontWeight: 700, color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '7px' }}>
-                  <Building2 size={17} /> Parecer da Comissão
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div className={styles.formGroup}>
-                    <label>Voto da Comissão</label>
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                      {(['FAVORÁVEL', 'CONTRÁRIO', 'SEGUIR RELATOR'] as const).map(v => {
-                        const sel = comissaoVoto === v;
-                        const c = v === 'FAVORÁVEL' ? { border: '#15803d', bg: '#f0fdf4', text: '#15803d' }
-                          : v === 'CONTRÁRIO'       ? { border: '#b91c1c', bg: '#fef2f2', text: '#b91c1c' }
-                          :                           { border: '#b45309', bg: '#fffbeb', text: '#b45309' };
-                        return (
-                          <button key={v} type="button" onClick={() => setComissaoVoto(v)}
-                            style={{ flex: v === 'SEGUIR RELATOR' ? 2 : 1, padding: '7px 3px',
-                              border: `2px solid ${sel ? c.border : '#e2e8f0'}`,
-                              borderRadius: '7px',
-                              background: sel ? c.bg : '#fff',
-                              color: sel ? c.text : '#6b7280',
-                              fontWeight: sel ? 700 : 500, fontSize: '0.7rem', cursor: 'pointer', lineHeight: 1.2 }}>
-                            {v === 'FAVORÁVEL' ? '✓ FAVORÁVEL' : v === 'CONTRÁRIO' ? '✗ CONTRÁRIO' : '↪ SEGUIR\nRELATOR'}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {comissaoVoto === 'SEGUIR RELATOR' && (
-                      <p style={{ margin: '4px 0 0', fontSize: '0.7rem', color: '#b45309' }}>
-                        O voto acompanhará automaticamente o parecer do relator (padrão: FAVORÁVEL)
-                      </p>
-                    )}
-                  </div>
-
-                  {(() => {
-                    // Resolve alvo do parecer: clicada > 1 checkbox > nenhum
-                    const soloId = ataSelectedIds.size === 1 ? [...ataSelectedIds][0] : undefined;
-                    const parecerTarget = selectedComissaoMateriaFila
-                      ?? (soloId ? comissaoFila.find(m => m.id === soloId) : undefined);
-                    const disabled = isGerandoComissao || !parecerTarget;
-                    return (
-                      <>
-                        <button onClick={handleGerarParecer} className={styles.generateButton} disabled={disabled}>
-                          {isGerandoComissao
-                            ? <><Loader2 size={17} className={styles.spinIcon} /> Gerando Parecer...</>
-                            : parecerTarget
-                              ? <><Building2 size={17} /> Gerar Parecer — {parecerTarget.tipo_sigla} {parecerTarget.numero}/{parecerTarget.ano}</>
-                              : <><Building2 size={17} /> Gerar Parecer</>}
-                        </button>
-                        {!parecerTarget && (
-                          <p style={{ margin: 0, fontSize: '0.73rem', color: '#9ca3af', textAlign: 'center' }}>
-                            Clique em uma matéria ou marque ☑ apenas uma para gerar o parecer
-                          </p>
-                        )}
-                        {ataSelectedIds.size > 1 && !selectedComissaoMateriaFila && (
-                          <p style={{ margin: 0, fontSize: '0.72rem', color: '#b45309', textAlign: 'center' }}>
-                            Mais de 1 matéria marcada — clique em uma para selecionar qual gerar o parecer
-                          </p>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* ── CARD: ATA da Reunião ── */}
-              <div className={styles.formCard}>
-                <h3 style={{ margin: '0 0 12px', fontSize: '0.95rem', fontWeight: 700, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '7px' }}>
-                  <FileText size={17} /> ATA da Reunião
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div className={styles.formGroup}>
-                    <label>Data da Reunião</label>
-                    <input type="date" className={styles.input} value={ataData} onChange={e => setAtaData(e.target.value)} />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <div className={styles.formGroup}>
-                      <label style={{ fontSize: '0.75rem' }}>Início (extenso)</label>
-                      <input type="text" className={styles.input} value={ataHoraInicio} onChange={e => setAtaHoraInicio(e.target.value)} placeholder="OITO HORAS" style={{ fontSize: '0.8rem' }} />
-                    </div>
-                    <div className={styles.formGroup}>
-                      <label style={{ fontSize: '0.75rem' }}>Fim (extenso)</label>
-                      <input type="text" className={styles.input} value={ataHoraFim} onChange={e => setAtaHoraFim(e.target.value)} placeholder="NOVE HORAS" style={{ fontSize: '0.8rem' }} />
-                    </div>
-                  </div>
-                  <button onClick={handleGerarAta} className={styles.generateButton}
-                    disabled={isGerandoComissao || ataSelectedIds.size === 0}
-                    style={{ background: ataSelectedIds.size > 0 ? '#0f766e' : undefined, borderColor: ataSelectedIds.size > 0 ? '#0d9488' : undefined }}>
-                    {isGerandoComissao
-                      ? <><Loader2 size={17} className={styles.spinIcon} /> Gerando ATA...</>
-                      : <><FileText size={17} /> Gerar ATA ({ataSelectedIds.size} matéria{ataSelectedIds.size !== 1 ? 's' : ''})</>}
-                  </button>
-                  {ataSelectedIds.size === 0
-                    ? <p style={{ margin: 0, fontSize: '0.73rem', color: '#9ca3af', textAlign: 'center' }}>Marque ☑ as matérias na fila para compor a ATA</p>
-                    : <p style={{ margin: 0, fontSize: '0.72rem', color: '#0f766e', textAlign: 'center', fontWeight: 500 }}>✔ {ataSelectedIds.size} matéria{ataSelectedIds.size !== 1 ? 's' : ''} selecionada{ataSelectedIds.size !== 1 ? 's' : ''} para ATA</p>
-                  }
-                </div>
-              </div>
-
-              {/* Resultado: Parecer da Comissão */}
-              {isGerandoComissao && (
-                <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '32px 16px', textAlign: 'center', background: '#fff' }}>
-                  <LogoLoader size={72} />
-                  <p style={{ color: '#6b7280', fontSize: '0.82rem', marginTop: '12px' }}>Gerando documentos...</p>
-                </div>
-              )}
-              {comissaoResult && !isGerandoComissao && (
-                <div className={styles.documentViewer}>
-                  <div className={styles.documentHeader}>
-                    <div className={styles.documentTitleGroup}>
-                      <span className={styles.documentSparkle}>✦</span>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1f2937' }}>PARECER DA COMISSÃO</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => handleExportComissaoOdt('comissao')} className={styles.exportButton} style={{ background: '#0284c7', color: 'white', borderColor: '#0369a1' }}>
-                        <FileText size={15} /> SAPL (.odt)
-                      </button>
-                      <button onClick={() => handleExportComissaoDocx('comissao')} className={styles.exportButton}>
-                        <Download size={15} /> DOCX
-                      </button>
-                    </div>
-                  </div>
-                  <A4DocumentViewer>
-                    <div className={styles.markdownContent}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{comissaoResult}</ReactMarkdown>
-                    </div>
-                  </A4DocumentViewer>
-                </div>
-              )}
-              {ataResult && !isGerandoComissao && (
-                <div className={styles.documentViewer}>
-                  <div className={styles.documentHeader}>
-                    <div className={styles.documentTitleGroup}>
-                      <span className={styles.documentSparkle}>✦</span>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1f2937' }}>ATA DA REUNIÃO</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => handleExportComissaoOdt('ata')} className={styles.exportButton} style={{ background: '#0284c7', color: 'white', borderColor: '#0369a1' }}>
-                        <FileText size={15} /> SAPL (.odt)
-                      </button>
-                      <button onClick={() => handleExportComissaoDocx('ata')} className={styles.exportButton}>
-                        <Download size={15} /> DOCX
-                      </button>
-                    </div>
-                  </div>
-                  <A4DocumentViewer>
-                    <div className={styles.markdownContent}>
-                      <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, fontSize: '0.85rem', lineHeight: 1.7 }}>{ataResult}</pre>
-                    </div>
-                  </A4DocumentViewer>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <ComissaoWizard
+          comissaoSigla={comissaoComissao}
+          comissaoFila={comissaoFila}
+          comissaoFilaLoading={comissaoFilaLoading}
+          comissoesDisponiveis={comissoesDisponiveis}
+          onComissaoChange={(sigla) => { setComissaoComissao(sigla); }}
+          gabineteNome={relatorNome}
+        />
       ) : (
       <div className={styles.mainGrid}>
         {/* Painel Esquerdo (Inputs e Configs) */}
-        <section className={styles.inputSection}>
+        <section className={styles.inputSection} style={isPanelCollapsed ? { width: '48px', minWidth: '48px', overflow: 'hidden' } : undefined}>
+
+          {/* Botão toggle do painel */}
+          <button
+            onClick={togglePanel}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: isPanelCollapsed ? '36px' : '100%',
+              height: '36px', gap: '8px',
+              background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px',
+              cursor: 'pointer', color: '#64748b', fontSize: '0.75rem', fontWeight: 600,
+              transition: 'all 0.25s ease-out', marginBottom: isPanelCollapsed ? '0' : '8px',
+              flexShrink: 0
+            }}
+            title={isPanelCollapsed ? 'Expandir painel' : 'Recolher painel'}
+          >
+            {isPanelCollapsed ? <PanelLeftOpen size={18} /> : <><PanelLeftClose size={16} /> Recolher painel</>}
+          </button>
+
+          {isPanelCollapsed ? null : (<>
+          {/* Conteúdo do painel (ocultado quando recolhido) */}
           
           {/* TABS DE NAVEGAÇÃO DA ORIGEM */}
           <div className={styles.tabsContainer}>
@@ -2078,120 +1868,107 @@ export default function PareceresDashboard() {
                     ) : (
                       <>
                         <hr style={{ border: 'none', borderTop: '2px solid #cbd5e1', marginBottom: '16px', marginTop: '8px' }} />
-                        <div 
-                          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', cursor: 'pointer', padding: '8px 0', flexWrap: 'wrap', gap: '12px' }}
-                          onClick={() => setIsUltimasOpen(!isUltimasOpen)}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            <svg 
-                              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                              style={{ transform: isUltimasOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: 'var(--gray-500)', flexShrink: 0 }}
-                            >
-                              <path d="m9 18 6-6-6-6"/>
-                            </svg>
-                            <h4 style={{ fontSize: '0.8125rem', color: '#4b5563', textTransform: 'uppercase', margin: 0, whiteSpace: 'nowrap' }}>
-                              Últimas Ordens do Dia
-                            </h4>
-                            <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1d4ed8', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap' }}>Auto-Sync (10m)</span>
-                          </div>
-                          
-                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'nowrap' }}>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); fetchSessoes(); }} 
-                              style={{ background: 'none', border: 'none', color: 'var(--primary-600)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, whiteSpace: 'nowrap' }}
-                              title="Apenas Recarregar Tela"
-                            >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21v-5h5"/></svg>
-                              Refresh
-                            </button>
 
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleSincronizarSapl(false); }} 
-                              style={{ 
-                                background: 'var(--primary-500)', border: 'none', color: 'white', 
-                                display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', 
-                                fontSize: '0.75rem', fontWeight: 600, padding: '4px 10px', borderRadius: '6px',
-                                boxShadow: '0 2px 4px rgba(37,99,235,0.2)', whiteSpace: 'nowrap', flexShrink: 0
-                              }}
-                              title="Forçar Busca Direto no SAPL Imediatamente"
-                            >
-                              <BrainCircuit size={14} />
-                              Sincronizar SAPL
-                            </button>
-                          </div>
-                        </div>
-                        
-                        {isUltimasOpen && (
-                          <div className={styles.sessoesList} style={{ maxHeight: 'max-content', marginBottom: '20px' }}>
-                            {ordensDoDiaParaMostrar.length === 0 ? (
-                               <p style={{fontSize:'0.812rem', color:'#6b7280', padding: '12px'}}>
-                                 {dataFiltro ? 'Nenhuma Ordem do Dia encontrada para esta data.' : 'Procurando Ordens do Dia ativas...'}
-                               </p>
-                            ) : (
-                              ordensDoDiaParaMostrar.map(s => {
-                                // SAPL Date format is usually YYYY-MM-DD
-                                const dt = s.data_inicio ? s.data_inicio.split('-').reverse().join('/') : '';
-                                return (
-                                  <div key={`od-${s.id}`} className={styles.sessaoCard} onClick={() => handleSelectSessao(s)} style={{ borderLeft: '3px solid var(--primary-500)', backgroundColor: '#fff', padding: '16px 16px 16px 14px', color: '#1f2937' }}>
-                                    <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                                      <strong style={{ display: 'block', fontSize: '0.9375rem', lineHeight: 1.4, color: '#1f2937', fontWeight: 600 }}>
-                                        {formatarDatasBR(s.__str__ || '') || 'Pauta Indefinida'}
-                                      </strong>
-                                      {s.upload_pauta && (
-                                        <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.6875rem', fontWeight: 600, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '4px', padding: '2px 6px' }}>
-                                          <FileText size={10} /> PDF
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <span style={{ display: 'inline-flex', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary-500)' }}></span>
-                                      <p style={{ margin: 0, fontSize: '0.8125rem', color: '#6b7280', fontWeight: 500 }}>
-                                        Extrair matérias ({dt})
-                                      </p>
-                                    </div>
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-                        )}
-
-                        <hr style={{ border: 'none', borderTop: '2px solid #cbd5e1', marginBottom: '8px' }} />
-
-                        <div 
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '8px 0', marginBottom: '8px' }}
-                          onClick={() => setIsDemaisOpen(!isDemaisOpen)}
-                        >
-                          <svg 
-                            width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                            style={{ transform: isDemaisOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: 'var(--gray-500)' }}
+                        {/* Toolbar de ações */}
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+                          <button
+                            onClick={() => fetchSessoes()}
+                            style={{
+                              background: 'none', border: '1px solid #d1d5db', color: '#4b5563',
+                              display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer',
+                              fontSize: '0.75rem', fontWeight: 600, padding: '6px 12px', borderRadius: '6px',
+                              transition: 'all 0.15s', whiteSpace: 'nowrap'
+                            }}
+                            title="Recarregar lista do cache local (instantâneo)"
                           >
-                            <path d="m9 18 6-6-6-6"/>
-                          </svg>
-                          <h4 style={{ fontSize: '0.8125rem', color: '#4b5563', textTransform: 'uppercase', margin: 0 }}>
-                            Demais Sessões do SAPL
-                          </h4>
+                            <RefreshCw size={13} />
+                            Atualizar tela
+                          </button>
+
+                          <button
+                            onClick={() => handleSincronizarSapl(false)}
+                            disabled={isLoadingSessoes}
+                            style={{
+                              background: 'var(--primary-600, #2563eb)', border: 'none', color: 'white',
+                              display: 'flex', alignItems: 'center', gap: '6px', cursor: isLoadingSessoes ? 'wait' : 'pointer',
+                              fontSize: '0.75rem', fontWeight: 600, padding: '6px 14px', borderRadius: '6px',
+                              boxShadow: '0 1px 3px rgba(37,99,235,0.25)', whiteSpace: 'nowrap', flexShrink: 0,
+                              opacity: isLoadingSessoes ? 0.7 : 1, transition: 'all 0.15s'
+                            }}
+                            title="Buscar sessões diretamente no SAPL (pode levar 1-2 minutos)"
+                          >
+                            {isLoadingSessoes ? <Loader2 size={13} className={styles.spinIcon} /> : <Zap size={13} />}
+                            {isLoadingSessoes ? 'Buscando...' : 'Buscar no SAPL'}
+                          </button>
                         </div>
                         
-                        {isDemaisOpen && (
-                          <div className={styles.sessoesList} style={{ maxHeight: 'max-content' }}>
-                            {demaisSessoesParaMostrar.length === 0 ? (
-                               <p style={{fontSize:'0.812rem', color:'#6b7280', padding: '12px'}}>Nenhuma sessão adicional encontrada.</p>
-                            ) : (
-                              demaisSessoesParaMostrar.slice(0, 10).map(s => {
-                                const dt = s.data_inicio ? s.data_inicio.split('-').reverse().join('/') : '';
-                                return (
-                                  <div key={`sessao-${s.id}`} className={styles.sessaoCard} onClick={() => handleSelectSessao(s)}>
-                                    <div className={styles.sessaoHeader}>
-                                      <strong>{formatarDatasBR(s.__str__ || '') || dt}</strong>
-                                    </div>
-                                    <p>{dt ? `Sessão em: ${dt}` : 'Visualizar matérias da sessão'}</p>
+                        {/* Lista unificada de sessões */}
+                        <div className={styles.sessoesList} style={{ maxHeight: 'max-content' }}>
+                          {/* Seção: Sessões com pauta publicada */}
+                          {ordensDoDiaParaMostrar.length === 0 && demaisSessoesParaMostrar.length === 0 ? (
+                            <p style={{ fontSize: '0.812rem', color: '#6b7280', padding: '12px' }}>
+                              {dataFiltro ? 'Nenhuma sessão encontrada para esta data.' : 'Clique em "Buscar no SAPL" para carregar sessões.'}
+                            </p>
+                          ) : (
+                            <>
+                              {ordensDoDiaParaMostrar.length > 0 && (
+                                <>
+                                  <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 2px', marginBottom: '4px' }}>
+                                    Com pauta publicada
                                   </div>
-                                );
-                              })
-                            )}
-                          </div>
-                        )}
+                                  {ordensDoDiaParaMostrar.map(s => {
+                                    const dt = s.data_inicio ? s.data_inicio.split('-').reverse().join('/') : '';
+                                    return (
+                                      <div key={`od-${s.id}`} className={styles.sessaoCard} onClick={() => handleSelectSessao(s)} style={{ borderLeft: '3px solid var(--primary-500)', backgroundColor: '#fff', padding: '16px 16px 16px 14px', color: '#1f2937' }}>
+                                        <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                          <strong style={{ display: 'block', fontSize: '0.9375rem', lineHeight: 1.4, color: '#1f2937', fontWeight: 600 }}>
+                                            {formatarDatasBR(s.__str__ || '') || 'Pauta Indefinida'}
+                                          </strong>
+                                          {s.upload_pauta && (
+                                            <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.6875rem', fontWeight: 600, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '4px', padding: '2px 6px' }}>
+                                              <FileText size={10} /> PDF
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <span style={{ display: 'inline-flex', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary-500)' }}></span>
+                                          <p style={{ margin: 0, fontSize: '0.8125rem', color: '#6b7280', fontWeight: 500 }}>
+                                            Extrair matérias ({dt})
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </>
+                              )}
+
+                              {/* Separador visual entre seções */}
+                              {demaisSessoesParaMostrar.length > 0 && ordensDoDiaParaMostrar.length > 0 && (
+                                <hr style={{ border: 'none', borderTop: '1px dashed #d1d5db', margin: '12px 0 8px' }} />
+                              )}
+
+                              {/* Seção: Outras sessões */}
+                              {demaisSessoesParaMostrar.length > 0 && (
+                                <>
+                                  <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 2px', marginBottom: '4px' }}>
+                                    Outras sessões
+                                  </div>
+                                  {demaisSessoesParaMostrar.slice(0, 10).map(s => {
+                                    const dt = s.data_inicio ? s.data_inicio.split('-').reverse().join('/') : '';
+                                    return (
+                                      <div key={`sessao-${s.id}`} className={styles.sessaoCard} onClick={() => handleSelectSessao(s)}>
+                                        <div className={styles.sessaoHeader}>
+                                          <strong>{formatarDatasBR(s.__str__ || '') || dt}</strong>
+                                        </div>
+                                        <p>{dt ? `Sessão em: ${dt}` : 'Visualizar matérias da sessão'}</p>
+                                      </div>
+                                    );
+                                  })}
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </>
                     )}
                   </>
@@ -2341,7 +2118,7 @@ export default function PareceresDashboard() {
                           {isGenerating ? (
                             <><Loader2 size={16} className={styles.spinIcon} /> Analisando Matérias...</>
                           ) : (
-                            <><BrainCircuit size={16} /> Gerar Parecer ({selectedMaterias.length} {selectedMaterias.length === 1 ? 'matéria' : 'matérias'})</>
+                            <><BrainCircuit size={16} /> Gerar Resumo ({selectedMaterias.length} {selectedMaterias.length === 1 ? 'matéria' : 'matérias'})</>
                           )}
                         </button>
                       </div>
@@ -2450,7 +2227,7 @@ export default function PareceresDashboard() {
 
           {/* Dicas / Workflow */}
           <div className={styles.infoCard}>
-            <h3>💡 Workflow Avançado</h3>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Lightbulb size={16} color="#f59e0b" /> Workflow Avançado</h3>
             <ul>
               <li><strong>Prioridade 1:</strong> Use a aba "Ordem do Dia" para extrair a pauta automaticamente do SAPL.</li>
               <li><strong>Falha do SAPL?</strong> Se a Ordem do Dia não estiver publicada lá, baixe o PDF e faça o upload na Aba 2!</li>
@@ -2539,6 +2316,7 @@ export default function PareceresDashboard() {
               )}
             </div>
           )}
+          </>)}
         </section>
 
         {/* Visualizador de Resultado (Direita) */}
@@ -2548,11 +2326,33 @@ export default function PareceresDashboard() {
 
             {!parecerResult && !isGenerating && (
                     <div className={styles.emptyState}>
-                      <FileText size={48} color="var(--gray-300)" />
-                      <h3>Pronta para iniciar.</h3>
-                      <p>Selecione uma sessão na coluna ao lado, escolha as matérias desejadas e clique em <strong>Gerar Parecer</strong>.</p>
-                      <br/>
-                      <p style={{fontSize: '0.8125rem', color: 'var(--primary-600)', background: 'var(--primary-50)', padding: '12px', borderRadius: '8px'}}>💡 Dica: Se a pauta não apareceu na lista, use a aba <strong>&quot;Pauta em PDF&quot;</strong> para subir o arquivo recebido pelo WhatsApp, ou cole o link da matéria diretamente na aba <strong>&quot;Link Direto&quot;</strong>.</p>
+                      <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'var(--primary-50, #eff6ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--primary-100, #dbeafe)' }}>
+                        <FileText size={32} color="var(--primary-400, #60a5fa)" />
+                      </div>
+                      <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>Pronta para iniciar</h3>
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280', maxWidth: '380px', lineHeight: 1.6 }}>
+                        Selecione uma sessão ao lado, escolha as matérias desejadas e clique em <strong>Gerar Resumo</strong>.
+                      </p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px', textAlign: 'left', maxWidth: '320px', width: '100%' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px', textAlign: 'center' }}>Fluxo rápido</div>
+                        {[
+                          { n: '1', text: 'Clique em "Buscar no SAPL" para atualizar sessões' },
+                          { n: '2', text: 'Selecione a sessão desejada' },
+                          { n: '3', text: 'Marque as matérias para análise' },
+                          { n: '4', text: 'Clique em "Gerar Resumo"' },
+                        ].map(step => (
+                          <div key={step.n} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8125rem', color: '#4b5563' }}>
+                            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--primary-50, #eff6ff)', color: 'var(--primary-600, #2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6875rem', fontWeight: 700, flexShrink: 0, border: '1px solid var(--primary-100, #dbeafe)' }}>{step.n}</span>
+                            {step.text}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ marginTop: '12px', fontSize: '0.8125rem', color: '#475569', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', maxWidth: '380px', lineHeight: 1.5 }}>
+                        <Lightbulb size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: '4px' }} />
+                        <strong>Dica:</strong> Se a pauta não apareceu, use <strong>&quot;Pauta em PDF&quot;</strong> ou cole o link em <strong>&quot;Link Direto&quot;</strong>.
+                      </div>
                     </div>
                   )}
             
@@ -2602,6 +2402,82 @@ export default function PareceresDashboard() {
           </div>
         </section>
       </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      {itemToDelete && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.4)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            padding: '24px',
+            borderRadius: '16px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            maxWidth: '380px',
+            width: '100%',
+            textAlign: 'center',
+            animation: 'fadeInUp 0.2s ease-out forwards'
+          }}>
+            <style>{`
+              @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(10px) scale(0.98); }
+                to { opacity: 1; transform: translateY(0) scale(1); }
+              }
+            `}</style>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#fef2f2',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#ef4444'
+            }}>
+              <Trash2 size={28} />
+            </div>
+            <h3 style={{ margin: '0 0 8px', fontSize: '1.15rem', color: '#0f172a', fontWeight: 700 }}>
+              Excluir do Histórico?
+            </h3>
+            <p style={{ margin: '0 0 24px', fontSize: '0.875rem', color: '#475569', lineHeight: 1.5 }}>
+              Você está prestes a deletar o parecer gerado:<br/>
+              <strong style={{ color: '#1e293b' }}>{itemToDelete.sessao_str || itemToDelete.data_sessao || 'Sessão'}</strong>
+              <br/><br/>
+              Esta ação não pode ser desfeita.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setItemToDelete(null)}
+                style={{ padding: '10px 16px', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#fff', color: '#475569', fontWeight: 600, cursor: 'pointer', flex: 1, fontSize: '0.9rem', transition: 'all 0.15s' }}
+                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#fff')}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/pareceres/historico?id=${itemToDelete.id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                      setHistorico(prev => prev.filter((item: any) => item.id !== itemToDelete.id));
+                      setItemToDelete(null);
+                    } else {
+                      alert('Falha ao deletar.');
+                    }
+                  } catch { alert('Erro de rede ao deletar.'); }
+                }}
+                style={{ padding: '10px 16px', border: 'none', borderRadius: '8px', background: '#ef4444', color: '#fff', fontWeight: 600, cursor: 'pointer', flex: 1, fontSize: '0.9rem', transition: 'all 0.15s' }}
+                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
+                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ef4444')}
+              >
+                Sim, Deletar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
