@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { FileText, Send, Loader2, Link2, BrainCircuit, Calendar, UploadCloud, Download, History, Shield, Search, Gavel, ExternalLink, CheckCircle2, CheckCircle, Clock, ChevronRight, Building2, Users, Trash2, Eye, RefreshCw, FileWarning, Lightbulb, PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
+import { FileText, Send, Loader2, Link2, BrainCircuit, Calendar, UploadCloud, Download, History, Shield, Search, Gavel, ExternalLink, CheckCircle2, CheckCircle, Clock, ChevronRight, ChevronDown, Building2, Users, Trash2, Eye, RefreshCw, FileWarning, Lightbulb, PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
 import styles from './pareceres-dashboard.module.css';
 import { ComissaoWizard } from './comissao/ComissaoWizard';
+import { PareceresAlertCards } from './pareceres-alert-cards';
+import type { ParecerAlertas } from './pareceres-alert-cards';
 import { PareceresModeracao } from './pareceres-moderacao';
 import { A4DocumentViewer } from '../ui/a4-document-viewer';
 import { LogoLoader } from '../ui/logo-loader';
@@ -155,6 +157,57 @@ export default function PareceresDashboard() {
   const [materiaContextoLoading, setMateriaContextoLoading] = useState(false);
   const [buscarIdMode, setBuscarIdMode] = useState(false);
   const [relatorBuscarId, setRelatorBuscarId] = useState('');
+
+  // Relatoria Redesign — filtros sidebar
+  const [relatoriaSearchQuery, setRelatoriaSearchQuery] = useState('');
+  const [relatoriaSortBy, setRelatoriaSortBy] = useState<'data_desc' | 'data_asc' | 'numero_desc' | 'numero_asc'>('data_desc');
+  const [relatoriaFilterTipo, setRelatoriaFilterTipo] = useState<string | null>(null);
+  const [relatoriaFilterStatus, setRelatoriaFilterStatus] = useState<'todos' | 'pendentes' | 'concluidos'>('todos');
+  const [contextoExpandido, setContextoExpandido] = useState(false);
+
+  // Relatoria Redesign — computed filters
+  const relatoriaTiposCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    relatoriaFila.forEach(m => { counts[m.tipo_sigla] = (counts[m.tipo_sigla] || 0) + 1; });
+    return counts;
+  }, [relatoriaFila]);
+
+  const relatoriaStatusCounts = useMemo(() => ({
+    pendentes: relatoriaFila.filter(m => m.status_relatoria === 'sem_rascunho').length,
+    concluidos: relatoriaFila.filter(m => m.status_relatoria === 'rascunho_gerado').length,
+  }), [relatoriaFila]);
+
+  const filteredRelatoriaFila = useMemo(() => {
+    let result = [...relatoriaFila];
+
+    // Filtro por tipo
+    if (relatoriaFilterTipo) result = result.filter(m => m.tipo_sigla === relatoriaFilterTipo);
+
+    // Filtro por status
+    if (relatoriaFilterStatus === 'pendentes') result = result.filter(m => m.status_relatoria === 'sem_rascunho');
+    if (relatoriaFilterStatus === 'concluidos') result = result.filter(m => m.status_relatoria === 'rascunho_gerado');
+
+    // Busca
+    if (relatoriaSearchQuery.trim()) {
+      const q = relatoriaSearchQuery.trim().toLowerCase();
+      result = result.filter(m => {
+        const numStr = `${m.tipo_sigla} ${m.numero}/${m.ano}`.toLowerCase();
+        return numStr.includes(q) || (m.ementa || '').toLowerCase().includes(q) || String(m.numero).includes(q);
+      });
+    }
+
+    // Ordenação
+    result.sort((a, b) => {
+      switch (relatoriaSortBy) {
+        case 'data_desc': return (b.data_tramitacao || '').localeCompare(a.data_tramitacao || '');
+        case 'data_asc': return (a.data_tramitacao || '').localeCompare(b.data_tramitacao || '');
+        case 'numero_asc': return a.numero - b.numero;
+        case 'numero_desc': return b.numero - a.numero;
+      }
+    });
+
+    return result;
+  }, [relatoriaFila, relatoriaSearchQuery, relatoriaSortBy, relatoriaFilterTipo, relatoriaFilterStatus]);
 
   useEffect(() => {
     async function loadConfig() {
@@ -886,69 +939,45 @@ export default function PareceresDashboard() {
       {abaPrincipal === 'alia' ? (
          <PareceresModeracao />
       ) : abaPrincipal === 'relatoria' ? (
-        /* ── ABA RELATORIA v2 — Fila automática ─────────────────── */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0', minHeight: 0 }}>
+        /* ── ABA RELATORIA v3 — Redesign 2 painéis ─────────────────── */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0, flex: 1, minHeight: 0 }}>
 
-          {/* Painel Pareceres Gerados */}
+          {/* Painel Pareceres Gerados (colapsável) */}
           {historico.length > 0 && (
-            <div style={{ marginBottom: '16px', border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden' }}>
+            <div style={{ marginBottom: 16, border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
               <button
                 onClick={() => setIsHistoricoOpen(h => !h)}
                 style={{ width: '100%', padding: '10px 16px', background: '#f8fafc', border: 'none', cursor: 'pointer',
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', fontWeight: 700, color: '#374151' }}
               >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <History size={15} /> Pareceres Gerados ({historico.length})
                 </span>
                 <ChevronRight size={14} style={{ transform: isHistoricoOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }} />
               </button>
               {isHistoricoOpen && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px', padding: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8, padding: 12 }}>
                   {historico.slice(0, 12).map((h: any) => (
                     <div key={h.id}
-                      style={{ padding: '10px 12px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
+                      style={{ padding: '10px 12px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
                         fontSize: '0.76rem', cursor: 'pointer', transition: 'all 0.15s', position: 'relative' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#1c4076'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(28,64,118,0.12)'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#e2e8f0'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                        <div style={{ fontWeight: 700, color: '#1c4076', flex: 1 }}>
-                          {h.sessao_str || h.data_sessao || 'Sessão'}
-                        </div>
-                        <button
-                          title="Deletar parecer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setItemToDelete(h);
-                          }}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#9ca3af', borderRadius: '4px', transition: 'color 0.15s' }}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                        <div style={{ fontWeight: 700, color: '#1c4076', flex: 1 }}>{h.sessao_str || h.data_sessao || 'Sessão'}</div>
+                        <button title="Deletar parecer" onClick={e => { e.stopPropagation(); setItemToDelete(h); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#9ca3af', borderRadius: 4, transition: 'color 0.15s' }}
                           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#9ca3af'; }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        ><Trash2 size={13} /></button>
                       </div>
-                      <div style={{ color: '#6b7280' }}>
-                        {h.total_materias} matéria(s) · {h.model_usado || 'flash'}
-                      </div>
-                      <div style={{ color: '#9ca3af', fontSize: '0.68rem', marginTop: '3px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ color: '#6b7280' }}>{h.total_materias} matéria(s) · {h.model_usado || 'flash'}</div>
+                      <div style={{ color: '#9ca3af', fontSize: '0.68rem', marginTop: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>{new Date(h.gerado_em).toLocaleDateString('pt-BR')}</span>
-                        <button
-                          title="Recarregar em tela"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (h.parecer_md) {
-                              setRelatorResult(h.parecer_md);
-                              setRelatorTitulo(h.sessao_str || h.data_sessao || 'Parecer Histórico');
-                            } else {
-                              alert('Este parecer não possui conteúdo salvo.');
-                            }
-                          }}
-                          style={{ background: '#f0f7ff', border: '1px solid #1c4076', cursor: 'pointer', padding: '3px 8px', color: '#1c4076',
-                            borderRadius: '4px', fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}
-                        >
-                          <Eye size={11} /> Abrir
-                        </button>
+                        <button title="Recarregar em tela" onClick={e => { e.stopPropagation(); if (h.parecer_md) { setRelatorResult(h.parecer_md); setRelatorTitulo(h.sessao_str || h.data_sessao || 'Parecer Histórico'); } else { alert('Este parecer não possui conteúdo salvo.'); } }}
+                          style={{ background: '#f0f7ff', border: '1px solid #1c4076', cursor: 'pointer', padding: '3px 8px', color: '#1c4076', borderRadius: 4, fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}
+                        ><Eye size={11} /> Abrir</button>
                       </div>
                     </div>
                   ))}
@@ -957,595 +986,499 @@ export default function PareceresDashboard() {
             </div>
           )}
 
-          {/* Tabs de comissões + botão buscar por ID */}
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center', borderBottom: '1px solid #e5e7eb', marginBottom: '16px', flexWrap: 'wrap' }}>
+          {/* Tabs de comissões + botão buscar por ID + Upload PDF */}
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center', borderBottom: '1px solid #e2e8f0', marginBottom: 16, flexWrap: 'wrap' }}>
             {comissoesDisponiveis.map(c => (
-              <button
-                key={c.sigla}
-                onClick={() => { setRelatorComissao(c.sigla); setRelatorResult(null); setRelatorTitulo(null); }}
+              <button key={c.sigla}
+                onClick={() => { setRelatorComissao(c.sigla); setRelatorResult(null); setRelatorTitulo(null); setRelatoriaSearchQuery(''); setRelatoriaFilterTipo(null); setRelatoriaFilterStatus('todos'); }}
                 style={{
-                  padding: '6px 14px',
-                  border: 'none',
+                  padding: '6px 14px', border: 'none',
                   borderBottom: relatorComissao === c.sigla ? '3px solid #1c4076' : '3px solid transparent',
-                  background: 'none',
-                  cursor: 'pointer',
+                  background: 'none', cursor: 'pointer',
                   fontWeight: relatorComissao === c.sigla ? 700 : 500,
                   color: relatorComissao === c.sigla ? '#1c4076' : '#6b7280',
-                  fontSize: '0.85rem',
-                  marginBottom: '-1px',
-                  whiteSpace: 'nowrap',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
+                  fontSize: '0.85rem', marginBottom: -1, whiteSpace: 'nowrap',
+                  display: 'flex', alignItems: 'center', gap: 4,
                 }}
                 title={`${c.nome}${c.meu_cargo ? ` — ${c.meu_cargo}` : ''}`}
               >
                 {c.sigla}
                 {c.meu_cargo && c.meu_cargo !== 'acesso_geral' && (
-                  <span style={{
-                    width: '7px', height: '7px', borderRadius: '50%', display: 'inline-block',
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', display: 'inline-block',
                     background: c.meu_cargo === 'presidente' ? '#15803d' : c.meu_cargo === 'vice-presidente' ? '#1d4ed8' : '#94a3b8',
                   }} title={c.meu_cargo} />
                 )}
               </button>
             ))}
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {/* Botão Upload PDF */}
-              <label
-                style={{
-                  padding: '5px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  background: '#fff',
-                  color: '#374151',
-                  fontSize: '0.8rem',
-                  cursor: pdfUploadLoading ? 'wait' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  opacity: pdfUploadLoading ? 0.7 : 1,
-                }}
-                title="Envie o PDF da matéria para identificação automática"
-              >
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+              <label style={{ padding: '5px 12px', border: '1px solid #d1d5db', borderRadius: 6, background: '#fff', color: '#374151', fontSize: '0.8rem', cursor: pdfUploadLoading ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 5, opacity: pdfUploadLoading ? 0.7 : 1 }} title="Envie o PDF da matéria para identificação automática">
                 {pdfUploadLoading ? <Loader2 size={13} className={styles.spinIcon} /> : <UploadCloud size={13} />}
                 {pdfUploadLoading ? 'Lendo PDF…' : 'Upload PDF'}
-                <input
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  style={{ display: 'none' }}
-                  disabled={pdfUploadLoading}
+                <input type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} disabled={pdfUploadLoading}
                   onChange={async e => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    e.target.value = '';
+                    const file = e.target.files?.[0]; if (!file) return; e.target.value = '';
                     setPdfUploadLoading(true);
                     try {
-                      const fd = new FormData();
-                      fd.append('file', file);
+                      const fd = new FormData(); fd.append('file', file);
                       const res = await fetch('/api/pareceres/relatoria/upload-pdf', { method: 'POST', body: fd });
                       const data = await res.json();
                       if (data.found && data.materia_id) {
-                        const fakeItem: MateriaFila = {
-                          id: data.materia_id, tipo_sigla: data.tipo, numero: data.numero, ano: data.ano,
-                          ementa: data.ementa, autores: '',
-                          status_relatoria: 'sem_rascunho', rascunho_voto: null, rascunho_em: null,
-                          ultima_tramitacao: '', sapl_url: data.sapl_url,
-                        };
-                        setSelectedMateriaFila(fakeItem);
-                        setRelatorResult(null);
-                        setRelatorTitulo(null);
-                        loadMateriaContexto(data.materia_id);
-                      } else {
-                        const hint = data.suggested_query ? ` Tente buscar por: ${data.suggested_query}` : '';
-                        alert((data.message || data.error || 'Não foi possível identificar a matéria no PDF.') + hint);
-                      }
-                    } catch {
-                      alert('Erro ao enviar o PDF. Tente novamente.');
-                    } finally {
-                      setPdfUploadLoading(false);
-                    }
+                        const fakeItem: MateriaFila = { id: data.materia_id, tipo_sigla: data.tipo, numero: data.numero, ano: data.ano, ementa: data.ementa, autores: '', status_relatoria: 'sem_rascunho', rascunho_voto: null, rascunho_em: null, ultima_tramitacao: '', sapl_url: data.sapl_url };
+                        setSelectedMateriaFila(fakeItem); setRelatorResult(null); setRelatorTitulo(null); loadMateriaContexto(data.materia_id);
+                      } else { const hint = data.suggested_query ? ` Tente buscar por: ${data.suggested_query}` : ''; alert((data.message || data.error || 'Não foi possível identificar a matéria no PDF.') + hint); }
+                    } catch { alert('Erro ao enviar o PDF. Tente novamente.'); } finally { setPdfUploadLoading(false); }
                   }}
                 />
               </label>
-              {/* Botão Buscar por ID */}
-              <button
-                onClick={() => setBuscarIdMode(b => !b)}
-                style={{
-                  padding: '5px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  background: buscarIdMode ? '#1c4076' : '#fff',
-                  color: buscarIdMode ? '#fff' : '#374151',
-                  fontSize: '0.8rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                }}
-              >
-                <Link2 size={13} /> Buscar por ID
-              </button>
+              <button onClick={() => setBuscarIdMode(b => !b)}
+                style={{ padding: '5px 12px', border: '1px solid #d1d5db', borderRadius: 6, background: buscarIdMode ? '#1c4076' : '#fff', color: buscarIdMode ? '#fff' : '#374151', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+              ><Link2 size={13} /> Buscar por ID</button>
             </div>
             {buscarIdMode && (
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end', width: '100%', paddingTop: '6px' }}>
-                <input
-                  type="text"
-                  placeholder="PLL 32/2026 ou ID"
-                  value={relatorBuscarId}
-                  onChange={e => setRelatorBuscarId(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleBuscarPorId()}
-                  style={{ width: '160px', padding: '5px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem' }}
-                  autoFocus
-                />
-                <button
-                  onClick={handleBuscarPorId}
-                  style={{ padding: '5px 12px', background: '#1c4076', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.82rem' }}
-                >
-                  Buscar
-                </button>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end', width: '100%', paddingTop: 6 }}>
+                <input type="text" placeholder="PLL 32/2026 ou ID" value={relatorBuscarId}
+                  onChange={e => setRelatorBuscarId(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleBuscarPorId()}
+                  style={{ width: 160, padding: '5px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: '0.85rem' }} autoFocus />
+                <button onClick={handleBuscarPorId}
+                  style={{ padding: '5px 12px', background: '#1c4076', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.82rem' }}>Buscar</button>
               </div>
             )}
           </div>
 
-          {/* Alarme Pegajoso de Pendências */}
-          {relatoriaFila.some(m => m.status_relatoria === 'sem_rascunho' && m.tipo_sigla !== 'PLE') && (
-            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecdd3', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', position: 'sticky', top: '0', zIndex: 10 }}>
-              <span style={{ fontSize: '1.4rem' }}>🚨</span>
-              <div style={{ flex: 1 }}>
-                <h4 style={{ margin: 0, fontSize: '0.88rem', color: '#991b1b', fontWeight: 700 }}>Atenção: Matérias Pendentes!</h4>
-                <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: '#b91c1c' }}>Você possui <strong>{relatoriaFila.filter(m => m.status_relatoria === 'sem_rascunho' && m.tipo_sigla !== 'PLE').length} matéria(s)</strong> aguardando análise e geração de parecer na comissão <strong>{relatorComissao}</strong>.</p>
-              </div>
-            </div>
-          )}
-          {relatoriaFila.some(m => m.tipo_sigla === 'PLE') && (
-            <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '1.1rem' }}>⚡</span>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontSize: '0.78rem', color: '#92400e' }}><strong>{relatoriaFila.filter(m => m.tipo_sigla === 'PLE').length} PLE(s)</strong> na fila — Projetos do Executivo geralmente são apreciados com urgência em sessão (parecer oral).</p>
-              </div>
-            </div>
-          )}
+          {/* ════════ GRID 2 PAINÉIS ════════ */}
+          <div className={styles.relatoriaGrid}>
 
-          {/* Grid dos 3 painéis */}
-          <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 380px', gap: '12px', minHeight: '600px', alignItems: 'start' }}>
-
-            {/* PAINEL ESQUERDO — Fila */}
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', background: '#fafafa' }}>
-              <div style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Fila — {relatorComissao}
-                </span>
-                <button
-                  onClick={() => loadRelatoriaFila(relatorComissao)}
-                  disabled={relatoriaFilaLoading}
-                  title="Atualizar fila do SAPL"
-                  style={{ background: 'none', border: 'none', cursor: relatoriaFilaLoading ? 'wait' : 'pointer', padding: '2px', color: '#6b7280', display: 'flex', alignItems: 'center' }}
-                >
-                  {relatoriaFilaLoading ? <Loader2 size={14} className={styles.spinIcon} /> : <RefreshCw size={14} />}
-                </button>
+            {/* ── SIDEBAR ESQUERDA (280px) ── */}
+            <div className={styles.relatoriaSidebar}>
+              {/* Header */}
+              <div className={styles.relatoriaSidebarHeader}>
+                <span className={styles.relatoriaSidebarHeaderTitle}>Fila — {relatorComissao}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {relatoriaStatusCounts.pendentes > 0 && (
+                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#b91c1c', background: '#fef2f2', padding: '2px 8px', borderRadius: 10 }}>
+                      {relatoriaStatusCounts.pendentes} pendente{relatoriaStatusCounts.pendentes > 1 ? 's' : ''}
+                    </span>
+                  )}
+                  <button onClick={() => loadRelatoriaFila(relatorComissao)} disabled={relatoriaFilaLoading} title="Atualizar fila do SAPL"
+                    style={{ background: 'none', border: 'none', cursor: relatoriaFilaLoading ? 'wait' : 'pointer', padding: 2, color: '#6b7280', display: 'flex', alignItems: 'center' }}>
+                    {relatoriaFilaLoading ? <Loader2 size={14} className={styles.spinIcon} /> : <RefreshCw size={14} />}
+                  </button>
+                </div>
               </div>
-              <div style={{ maxHeight: '580px', overflowY: 'auto' }}>
-                {!relatoriaFilaLoading && relatoriaFila.length === 0 && (
+
+              {/* Body: busca, chips, progresso */}
+              <div className={styles.relatoriaSidebarBody}>
+                {/* Busca */}
+                <div className={styles.relatoriaSearchWrapper}>
+                  <Search size={14} className={styles.relatoriaSearchIcon} />
+                  <input type="text" className={styles.relatoriaSearchInput}
+                    placeholder="Buscar número, ementa..."
+                    value={relatoriaSearchQuery} onChange={e => setRelatoriaSearchQuery(e.target.value)} />
+                </div>
+
+                {/* Chips de tipo */}
+                <div className={styles.relatoriaChips}>
+                  <button className={`${styles.relatoriaChip} ${!relatoriaFilterTipo ? styles.relatoriaChipActive : ''}`}
+                    onClick={() => setRelatoriaFilterTipo(null)}>
+                    Todos ({relatoriaFila.length})
+                  </button>
+                  {Object.entries(relatoriaTiposCounts).map(([tipo, count]) => (
+                    <button key={tipo}
+                      className={`${styles.relatoriaChip} ${relatoriaFilterTipo === tipo ? styles.relatoriaChipActive : ''}`}
+                      onClick={() => setRelatoriaFilterTipo(relatoriaFilterTipo === tipo ? null : tipo)}>
+                      {tipo} ({count})
+                    </button>
+                  ))}
+                </div>
+
+                {/* Chips de status */}
+                <div className={styles.relatoriaChips}>
+                  <button className={`${styles.relatoriaChip} ${relatoriaFilterStatus === 'todos' ? styles.relatoriaChipActive : ''}`}
+                    onClick={() => setRelatoriaFilterStatus('todos')}>Todos</button>
+                  <button className={`${styles.relatoriaChip} ${relatoriaFilterStatus === 'pendentes' ? styles.relatoriaStatusChipPendente : ''}`}
+                    onClick={() => setRelatoriaFilterStatus(relatoriaFilterStatus === 'pendentes' ? 'todos' : 'pendentes')}>
+                    Pendentes ({relatoriaStatusCounts.pendentes})
+                  </button>
+                  <button className={`${styles.relatoriaChip} ${relatoriaFilterStatus === 'concluidos' ? styles.relatoriaStatusChipConcluido : ''}`}
+                    onClick={() => setRelatoriaFilterStatus(relatoriaFilterStatus === 'concluidos' ? 'todos' : 'concluidos')}>
+                    Concluídos ({relatoriaStatusCounts.concluidos})
+                  </button>
+                </div>
+
+                {/* Sort + Progress */}
+                <div className={styles.relatoriaSortRow}>
+                  <select className={styles.relatoriaSortSelect} value={relatoriaSortBy}
+                    onChange={e => setRelatoriaSortBy(e.target.value as any)}>
+                    <option value="data_desc">Mais recentes</option>
+                    <option value="data_asc">Mais antigas</option>
+                    <option value="numero_desc">Número ↓</option>
+                    <option value="numero_asc">Número ↑</option>
+                  </select>
+                  <div className={styles.relatoriaProgressContainer}>
+                    <div className={styles.relatoriaProgressBar}>
+                      <div className={styles.relatoriaProgressFill}
+                        style={{ width: relatoriaFila.length > 0 ? `${(relatoriaStatusCounts.concluidos / relatoriaFila.length) * 100}%` : '0%' }} />
+                    </div>
+                    <span className={styles.relatoriaProgressLabel}>
+                      {relatoriaStatusCounts.concluidos}/{relatoriaFila.length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lista de Matérias */}
+              <div className={styles.relatoriaList}>
+                {!relatoriaFilaLoading && filteredRelatoriaFila.length === 0 && (
                   <div style={{ padding: '24px 12px', textAlign: 'center', color: '#9ca3af', fontSize: '0.8rem' }}>
-                    <Gavel size={28} color="#d1d5db" style={{ marginBottom: '8px' }} />
-                    <p style={{ margin: 0 }}>Nenhuma matéria encontrada na fila.</p>
-                    <p style={{ margin: '4px 0 0', fontSize: '0.73rem' }}>Use "Buscar por ID" para localizar uma matéria específica.</p>
+                    <Gavel size={28} color="#d1d5db" style={{ marginBottom: 8 }} />
+                    <p style={{ margin: 0 }}>
+                      {relatoriaFila.length === 0 ? 'Nenhuma matéria na fila.' : 'Nenhuma matéria corresponde aos filtros.'}
+                    </p>
+                    {relatoriaFila.length === 0 && <p style={{ margin: '4px 0 0', fontSize: '0.73rem' }}>Use "Buscar por ID" para localizar uma matéria específica.</p>}
                   </div>
                 )}
-                {relatoriaFila.map((m, idx) => (<>
-                  {/* Separador entre matérias normais e PLEs */}
-                  {m.tipo_sigla === 'PLE' && idx > 0 && relatoriaFila[idx - 1]?.tipo_sigla !== 'PLE' && (
-                    <div key={`sep-ple-${m.id}`} style={{ padding: '6px 12px', background: '#fffbeb', borderBottom: '1px solid #fde68a', fontSize: '0.68rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      ⚡ Projetos do Executivo (urgência)
-                    </div>
-                  )}
-                  <button
-                    key={m.id}
-                    onClick={() => handleSelecionarMateriaFila(m)}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: 'none',
-                      borderBottom: '1px solid #f3f4f6',
-                      background: selectedMateriaFila?.id === m.id ? '#eff6ff' : '#fff',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      borderLeft: selectedMateriaFila?.id === m.id ? '3px solid #1c4076' : '3px solid transparent',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '4px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: m.tipo_sigla === 'PLE' ? '#92400e' : '#1c4076' }}>
+                {relatoriaFilaLoading && (
+                  <div style={{ padding: '32px 12px', textAlign: 'center' }}>
+                    <Loader2 size={24} color="#94a3b8" className={styles.spinIcon} />
+                    <p style={{ color: '#9ca3af', fontSize: '0.78rem', marginTop: 8 }}>Carregando fila...</p>
+                  </div>
+                )}
+                {filteredRelatoriaFila.map((m) => {
+                  const isSelected = selectedMateriaFila?.id === m.id;
+                  const isPendente = m.status_relatoria === 'sem_rascunho';
+                  const isOld = m.data_tramitacao && (Date.now() - new Date(m.data_tramitacao).getTime()) > 180 * 24 * 60 * 60 * 1000;
+                  return (
+                    <button key={m.id}
+                      onClick={() => handleSelecionarMateriaFila(m)}
+                      className={`${styles.relatoriaItem} ${isSelected ? styles.relatoriaItemSelected : ''} ${!isSelected && isPendente ? styles.relatoriaItemPendente : ''} ${!isSelected && !isPendente ? styles.relatoriaItemConcluido : ''} ${isOld ? styles.relatoriaItemOld : ''}`}
+                    >
+                      <div className={styles.relatoriaItemHeader}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                          <span className={`${styles.relatoriaItemNumber} ${m.tipo_sigla === 'PLE' ? styles.relatoriaItemNumberPle : ''}`}>
                             {m.tipo_sigla} {m.numero}/{m.ano}
                           </span>
+                          {isPendente ? (
+                            <span className={`${styles.relatoriaItemBadge} ${styles.relatoriaItemBadgePendente}`}>Pendente</span>
+                          ) : m.rascunho_voto?.includes('FAVORÁVEL') ? (
+                            <span className={`${styles.relatoriaItemBadge} ${styles.relatoriaItemBadgeFavoravel}`}>✓ Favorável</span>
+                          ) : m.rascunho_voto?.includes('CONTRÁRIO') ? (
+                            <span className={`${styles.relatoriaItemBadge} ${styles.relatoriaItemBadgeContrario}`}>✗ Contrário</span>
+                          ) : (
+                            <span className={`${styles.relatoriaItemBadge} ${styles.relatoriaItemBadgeFavoravel}`}>✓ Concluído</span>
+                          )}
                           {m.tipo_sigla === 'PLE' && (
-                            <span style={{ fontSize: '0.58rem', fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '1px 4px', borderRadius: '3px', lineHeight: 1.3, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                              ⚡ Executivo
-                            </span>
+                            <span className={`${styles.relatoriaItemBadge} ${styles.relatoriaItemBadgePle}`}>⚡ Urgente</span>
                           )}
                         </div>
-                        {m.data_tramitacao && (
-                          <span style={{ fontSize: '0.65rem', color: '#475569', background: '#f1f5f9', padding: '2px 5px', borderRadius: '4px', width: 'fit-content' }}>
-                            Data SAPL: {formatarDatasBR(m.data_tramitacao)}
-                          </span>
-                        )}
                       </div>
-                      {m.tipo_sigla === 'PLE' ? (
-                        <span title="PLE — geralmente apreciado com urgência em sessão" style={{ fontSize: '0.7rem', flexShrink: 0, marginTop: '1px' }}>⚡</span>
-                      ) : m.status_relatoria === 'rascunho_gerado' ? (
-                        <CheckCircle2 size={14} color="#15803d" style={{ flexShrink: 0, marginTop: '1px' }} />
-                      ) : (
-                        <Clock size={14} color="#9ca3af" style={{ flexShrink: 0, marginTop: '1px' }} />
-                      )}
-                    </div>
-                    <p style={{ margin: '3px 0 0', fontSize: '0.72rem', color: '#6b7280', lineHeight: 1.3,
-                      overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                      {m.ementa || '(sem ementa)'}
-                    </p>
-                    {m.status_relatoria === 'rascunho_gerado' && (
-                      <span style={{ display: 'inline-block', marginTop: '4px', fontSize: '0.68rem', color: '#15803d', fontWeight: 600 }}>
-                        ✓ Rascunho gerado
-                      </span>
-                    )}
-                  </button>
-                </>))}
+                      <p className={styles.relatoriaItemEmenta}>{m.ementa || '(sem ementa)'}</p>
+                      <div className={styles.relatoriaItemMeta}>
+                        {m.data_tramitacao && <span>{formatarDatasBR(m.data_tramitacao)}</span>}
+                        {m.autores && <><span>·</span><span>{m.autores}</span></>}
+                      </div>
+                    </button>
+                  );
+                })}
 
+                {/* Matéria avulsa (busca por ID) não presente na fila */}
                 {selectedMateriaFila && !relatoriaFila.find(m => m.id === selectedMateriaFila.id) && (
-                  <div style={{ padding: '10px 12px', borderBottom: '1px solid #f3f4f6', background: '#eff6ff', borderLeft: '3px solid #1c4076' }}>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1c4076' }}>
-                      Matéria #{selectedMateriaFila.id}
-                    </span>
+                  <div style={{ padding: '10px 12px', borderBottom: '1px solid #f1f5f9', background: '#eff6ff', borderLeft: '3px solid #1c4076' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1c4076' }}>Matéria #{selectedMateriaFila.id}</span>
                     <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: '#6b7280' }}>
-                      {materiaContexto?.materia?.ementa
-                        ? materiaContexto.materia.ementa.substring(0, 80) + '...'
-                        : 'Carregando...'}
+                      {materiaContexto?.materia?.ementa ? materiaContexto.materia.ementa.substring(0, 80) + '...' : 'Carregando...'}
                     </p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* PAINEL CENTRAL — Contexto da matéria */}
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', background: '#fff', overflow: 'hidden' }}>
-              {!selectedMateriaFila && !materiaContextoLoading && (
-                <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9ca3af' }}>
-                  <ChevronRight size={36} color="#d1d5db" />
-                  <p style={{ margin: '8px 0 0', fontSize: '0.85rem' }}>Selecione uma matéria na fila para ver o contexto completo.</p>
-                </div>
-              )}
-              {materiaContextoLoading && (
-                <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-                  <Loader2 size={32} color="#94a3b8" className={styles.spinIcon} />
-                  <p style={{ color: '#9ca3af', fontSize: '0.85rem', marginTop: '12px' }}>Buscando dados no SAPL...</p>
-                </div>
-              )}
-              {materiaContexto && !materiaContextoLoading && (
-                <div>
-                  {/* Header */}
-                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e7eb', background: '#f8fafc' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: materiaContexto.materia.tipo_sigla === 'PLE' ? '#92400e' : '#1c4076', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            {materiaContexto.materia.tipo_sigla} {materiaContexto.materia.numero}/{materiaContexto.materia.ano}
-                          </span>
-                          {materiaContexto.materia.tipo_sigla === 'PLE' && (
-                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>
-                              ⚡ Executivo — votação com urgência
-                            </span>
-                          )}
-                        </div>
-                        <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: '#374151', lineHeight: 1.4 }}>
-                          {materiaContexto.materia.ementa}
-                        </p>
-                        <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: '#6b7280' }}>
-                          Autor: {materiaContexto.materia.autores || '—'} · Regime: {materiaContexto.materia.regime}
-                        </p>
-                      </div>
-                      <a
-                        href={materiaContexto.materia.sapl_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ flexShrink: 0, padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: '6px',
-                          background: '#fff', color: '#374151', fontSize: '0.75rem', display: 'flex', alignItems: 'center',
-                          gap: '4px', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                      >
-                        <ExternalLink size={12} /> SAPL
-                      </a>
-                    </div>
-                  </div>
+            {/* ── ÁREA PRINCIPAL (flex: 1) ── */}
+            <div className={styles.relatoriaMain}>
 
-                  <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {/* Procuradoria */}
-                    <div>
-                      <p style={{ margin: '0 0 6px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Procuradoria Jurídica
-                      </p>
-                      {materiaContexto.procuradoria.voto ? (
-                        <div style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px',
-                          borderRadius: '6px',
-                          background: materiaContexto.procuradoria.voto === 'FAVORÁVEL' ? '#f0fdf4' : materiaContexto.procuradoria.voto === 'CONTRÁRIO' ? '#fef2f2' : '#fffbeb',
-                          border: `1px solid ${materiaContexto.procuradoria.voto === 'FAVORÁVEL' ? '#bbf7d0' : materiaContexto.procuradoria.voto === 'CONTRÁRIO' ? '#fecaca' : '#fde68a'}`,
-                        }}>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 700,
-                            color: materiaContexto.procuradoria.voto === 'FAVORÁVEL' ? '#15803d' : materiaContexto.procuradoria.voto === 'CONTRÁRIO' ? '#b91c1c' : '#92400e' }}>
-                            {materiaContexto.procuradoria.voto === 'FAVORÁVEL' ? '✓' : materiaContexto.procuradoria.voto === 'CONTRÁRIO' ? '✗' : '⚠'} {materiaContexto.procuradoria.voto}
-                          </span>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Não encontrado nas tramitações</span>
+              {/* Estado vazio */}
+              {!selectedMateriaFila && !materiaContextoLoading && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', color: '#9ca3af', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '48px 24px 24px' }}>
+                  <Gavel size={40} color="#d1d5db" />
+                  <p style={{ margin: '12px 0 0', fontSize: '0.92rem', fontWeight: 600, color: '#6b7280' }}>Selecione uma matéria</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.78rem' }}>Clique em uma matéria na fila à esquerda para ver o contexto e gerar parecer.</p>
+                </div>
+              )}
+
+              {/* Carregando */}
+              {materiaContextoLoading && (
+                <div style={{ padding: '48px 24px', textAlign: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                  <Loader2 size={32} color="#94a3b8" className={styles.spinIcon} />
+                  <p style={{ color: '#9ca3af', fontSize: '0.85rem', marginTop: 12 }}>Buscando dados no SAPL...</p>
+                </div>
+              )}
+
+              {/* Conteúdo com matéria selecionada */}
+              {materiaContexto && !materiaContextoLoading && (<>
+
+                {/* 2.1 Header da Matéria */}
+                <div className={styles.relatoriaMainHeader}>
+                  <div className={styles.relatoriaMainTitle}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span className={styles.relatoriaMainTitleText}>
+                        {materiaContexto.materia.tipo_sigla} {materiaContexto.materia.numero}/{materiaContexto.materia.ano}
+                      </span>
+                      {materiaContexto.materia.tipo_sigla === 'PLE' && (
+                        <span className={`${styles.relatoriaItemBadge} ${styles.relatoriaItemBadgePle}`}>⚡ Executivo — urgência</span>
+                      )}
+                      {selectedMateriaFila && (
+                        selectedMateriaFila.status_relatoria === 'sem_rascunho'
+                          ? <span className={`${styles.relatoriaItemBadge} ${styles.relatoriaItemBadgePendente}`}>Sem parecer</span>
+                          : <span className={`${styles.relatoriaItemBadge} ${styles.relatoriaItemBadgeFavoravel}`}>Parecer gerado</span>
                       )}
                     </div>
+                    <a href={materiaContexto.materia.sapl_url} target="_blank" rel="noopener noreferrer"
+                      style={{ flexShrink: 0, padding: '5px 12px', border: '1px solid #bfdbfe', borderRadius: 6, background: '#eff6ff', color: '#1c4076', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                      <ExternalLink size={13} /> SAPL
+                    </a>
+                  </div>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: '#475569', lineHeight: 1.5 }}>
+                    {materiaContexto.materia.ementa}
+                  </p>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: '#94a3b8' }}>
+                    {materiaContexto.materia.autores || '—'} · {materiaContexto.materia.regime} {materiaContexto.materia.tipo_descricao && `· ${materiaContexto.materia.tipo_descricao}`}
+                  </p>
+                </div>
+
+                {/* 2.2 Contexto Compacto */}
+                <div className={styles.relatoriaContexto}>
+                  <div className={styles.relatoriaContextoInline}>
+                    {/* Procuradoria badge */}
+                    <span style={{ fontWeight: 600 }}>Proc:</span>
+                    {materiaContexto.procuradoria.voto ? (
+                      <span style={{ fontWeight: 700, fontSize: '0.78rem',
+                        color: materiaContexto.procuradoria.voto === 'FAVORÁVEL' ? '#15803d' : materiaContexto.procuradoria.voto === 'CONTRÁRIO' ? '#b91c1c' : '#92400e' }}>
+                        {materiaContexto.procuradoria.voto === 'FAVORÁVEL' ? '✓' : materiaContexto.procuradoria.voto === 'CONTRÁRIO' ? '✗' : '⚠'} {materiaContexto.procuradoria.voto}
+                      </span>
+                    ) : <span style={{ color: '#9ca3af' }}>N/A</span>}
 
                     {/* Outras comissões */}
-                    {materiaContexto.outras_comissoes.length > 0 && (
+                    {materiaContexto.outras_comissoes.length > 0 && (<>
+                      <span className={styles.relatoriaContextoSep}>·</span>
+                      {materiaContexto.outras_comissoes.map((oc, i) => (
+                        <span key={i} style={{ fontSize: '0.75rem', fontWeight: 600,
+                          color: oc.voto.includes('FAVORÁVEL') || oc.voto.includes('APROVADO') ? '#15803d' : oc.voto.includes('CONTRÁRIO') ? '#b91c1c' : '#92400e' }}>
+                          {oc.comissao}✓
+                        </span>
+                      ))}
+                    </>)}
+
+                    <span className={styles.relatoriaContextoSep}>·</span>
+                    <span>{materiaContexto.tramitacoes.length} tramitaç{materiaContexto.tramitacoes.length === 1 ? 'ão' : 'ões'}</span>
+
+                    {relatorRagDocs && (<>
+                      <span className={styles.relatoriaContextoSep}>·</span>
+                      <span>{relatorRagDocs.total_docs_analisados} doc{relatorRagDocs.total_docs_analisados !== 1 ? 's' : ''} IA</span>
+                    </>)}
+
+                    <button className={styles.relatoriaContextoToggle} onClick={() => setContextoExpandido(x => !x)}>
+                      {contextoExpandido ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                      {contextoExpandido ? 'Ocultar' : 'Ver detalhes'}
+                    </button>
+                  </div>
+
+                  {/* Detalhes expandidos */}
+                  {contextoExpandido && (
+                    <div className={styles.relatoriaContextoExpanded}>
+                      {/* Procuradoria */}
                       <div>
-                        <p style={{ margin: '0 0 6px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          Pareceres de outras comissões
-                        </p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {materiaContexto.outras_comissoes.map((oc, i) => (
-                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                              padding: '4px 10px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                              <span style={{ fontSize: '0.78rem', color: '#374151' }}>{oc.comissao}</span>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 700,
-                                color: oc.voto.includes('FAVORÁVEL') || oc.voto.includes('APROVADO') ? '#15803d' :
-                                       oc.voto.includes('CONTRÁRIO') ? '#b91c1c' : '#92400e' }}>
-                                {oc.voto}
-                              </span>
+                        <p style={{ margin: '0 0 6px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Procuradoria Jurídica</p>
+                        {materiaContexto.procuradoria.voto ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6,
+                            background: materiaContexto.procuradoria.voto === 'FAVORÁVEL' ? '#f0fdf4' : materiaContexto.procuradoria.voto === 'CONTRÁRIO' ? '#fef2f2' : '#fffbeb',
+                            border: `1px solid ${materiaContexto.procuradoria.voto === 'FAVORÁVEL' ? '#bbf7d0' : materiaContexto.procuradoria.voto === 'CONTRÁRIO' ? '#fecaca' : '#fde68a'}` }}>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 700,
+                              color: materiaContexto.procuradoria.voto === 'FAVORÁVEL' ? '#15803d' : materiaContexto.procuradoria.voto === 'CONTRÁRIO' ? '#b91c1c' : '#92400e' }}>
+                              {materiaContexto.procuradoria.voto === 'FAVORÁVEL' ? '✓' : materiaContexto.procuradoria.voto === 'CONTRÁRIO' ? '✗' : '⚠'} {materiaContexto.procuradoria.voto}
+                            </span>
+                          </div>
+                        ) : <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Não encontrado nas tramitações</span>}
+                      </div>
+
+                      {/* Outras comissões */}
+                      {materiaContexto.outras_comissoes.length > 0 && (
+                        <div>
+                          <p style={{ margin: '0 0 6px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pareceres de outras comissões</p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {materiaContexto.outras_comissoes.map((oc, i) => (
+                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 10px', background: '#fff', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                                <span style={{ fontSize: '0.78rem', color: '#374151' }}>{oc.comissao}</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700,
+                                  color: oc.voto.includes('FAVORÁVEL') || oc.voto.includes('APROVADO') ? '#15803d' : oc.voto.includes('CONTRÁRIO') ? '#b91c1c' : '#92400e' }}>{oc.voto}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tramitações */}
+                      <div>
+                        <p style={{ margin: '0 0 6px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tramitações recentes</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 220, overflowY: 'auto' }}>
+                          {materiaContexto.tramitacoes.slice(0, 8).map((t, i) => (
+                            <div key={i} style={{ display: 'flex', gap: 8, fontSize: '0.76rem', padding: '4px 0', borderBottom: '1px solid #f3f4f6' }}>
+                              <span style={{ color: '#9ca3af', flexShrink: 0, width: 72 }}>{t.data}</span>
+                              <span style={{ color: '#374151', lineHeight: 1.35 }}>{t.texto}</span>
                             </div>
                           ))}
+                          {materiaContexto.tramitacoes.length === 0 && <span style={{ color: '#9ca3af', fontSize: '0.78rem' }}>Sem tramitações registradas.</span>}
                         </div>
                       </div>
-                    )}
 
-                    {/* Tramitações */}
-                    <div>
-                      <p style={{ margin: '0 0 6px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Tramitações recentes
-                      </p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '220px', overflowY: 'auto' }}>
-                        {materiaContexto.tramitacoes.slice(0, 8).map((t, i) => (
-                          <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '0.76rem', padding: '4px 0',
-                            borderBottom: '1px solid #f3f4f6' }}>
-                            <span style={{ color: '#9ca3af', flexShrink: 0, width: '72px' }}>{t.data}</span>
-                            <span style={{ color: '#374151', lineHeight: 1.35 }}>{t.texto}</span>
+                      {/* RAG docs */}
+                      {relatorRagDocs && (
+                        <div>
+                          <p style={{ margin: '0 0 8px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span>🔍</span> Documentos analisados pela IA
+                          </p>
+                          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 999, fontWeight: 600, background: relatorRagDocs.procuradoria_encontrada ? '#dcfce7' : '#fee2e2', color: relatorRagDocs.procuradoria_encontrada ? '#15803d' : '#b91c1c' }}>
+                              {relatorRagDocs.procuradoria_encontrada ? '✓' : '✗'} Procuradoria
+                            </span>
+                            <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 999, fontWeight: 600, background: relatorRagDocs.cljrf_encontrado ? '#dcfce7' : '#fee2e2', color: relatorRagDocs.cljrf_encontrado ? '#15803d' : '#b91c1c' }}>
+                              {relatorRagDocs.cljrf_encontrado ? '✓' : '✗'} CLJRF
+                            </span>
+                            <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 999, fontWeight: 600, background: '#f0f9ff', color: '#0369a1' }}>
+                              {relatorRagDocs.total_texto_extraido}/{relatorRagDocs.total_docs_analisados} com texto extraído
+                            </span>
                           </div>
-                        ))}
-                        {materiaContexto.tramitacoes.length === 0 && (
-                          <span style={{ color: '#9ca3af', fontSize: '0.78rem' }}>Sem tramitações registradas.</span>
-                        )}
-                      </div>
+                          {relatorRagDocs.procuradoria.length > 0 && (
+                            <div style={{ marginBottom: 8 }}>
+                              <p style={{ margin: '0 0 4px', fontSize: '0.69rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Procuradoria</p>
+                              {relatorRagDocs.procuradoria.map((d, i) => (
+                                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 6px', background: '#fff', borderRadius: 5, marginBottom: 3, fontSize: '0.74rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
+                                    <span style={{ color: '#374151', flex: 1 }}>{d.nome}</span>
+                                    <span style={{ fontSize: '0.67rem', padding: '1px 5px', borderRadius: 999, flexShrink: 0, background: d.texto_extraido ? '#dcfce7' : '#fef3c7', color: d.texto_extraido ? '#15803d' : '#92400e' }}>{d.texto_extraido ? 'Texto OK' : 'PDF imagem'}</span>
+                                  </div>
+                                  {d.url && <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontSize: '0.67rem', textDecoration: 'underline' }}>Ver no SAPL</a>}
+                                  {d.trecho && <span style={{ color: '#6b7280', fontSize: '0.67rem', fontStyle: 'italic', borderLeft: '2px solid #d1d5db', paddingLeft: 6, marginTop: 2 }}>{d.trecho.slice(0, 200)}…</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {relatorRagDocs.comissoes.length > 0 && (
+                            <div>
+                              <p style={{ margin: '0 0 4px', fontSize: '0.69rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Comissões</p>
+                              {relatorRagDocs.comissoes.map((d, i) => (
+                                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 6px', background: '#fff', borderRadius: 5, marginBottom: 3, fontSize: '0.74rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
+                                    <span style={{ color: '#374151', flex: 1 }}>{d.nome}</span>
+                                    <span style={{ fontSize: '0.67rem', padding: '1px 5px', borderRadius: 999, flexShrink: 0, background: d.texto_extraido ? '#dcfce7' : '#fef3c7', color: d.texto_extraido ? '#15803d' : '#92400e' }}>{d.texto_extraido ? 'Texto OK' : 'PDF imagem'}</span>
+                                  </div>
+                                  {d.url && <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontSize: '0.67rem', textDecoration: 'underline' }}>Ver no SAPL</a>}
+                                  {d.trecho && <span style={{ color: '#6b7280', fontSize: '0.67rem', fontStyle: 'italic', borderLeft: '2px solid #d1d5db', paddingLeft: 6, marginTop: 2 }}>{d.trecho.slice(0, 200)}…</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {relatorRagDocs.total_docs_analisados === 0 && <p style={{ fontSize: '0.74rem', color: '#9ca3af', margin: 0 }}>Nenhum documento acessório encontrado para esta matéria.</p>}
+                        </div>
+                      )}
                     </div>
-
-                    {/* Painel RAG — documentos analisados pela IA */}
-                    {relatorRagDocs && (
-                      <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
-                        <p style={{ margin: '0 0 8px', fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <span>🔍</span> Documentos analisados pela IA
-                        </p>
-
-                        {/* Indicadores de alerta rápido */}
-                        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 600,
-                            background: relatorRagDocs.procuradoria_encontrada ? '#dcfce7' : '#fee2e2',
-                            color: relatorRagDocs.procuradoria_encontrada ? '#15803d' : '#b91c1c' }}>
-                            {relatorRagDocs.procuradoria_encontrada ? '✓' : '✗'} Procuradoria
-                          </span>
-                          <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 600,
-                            background: relatorRagDocs.cljrf_encontrado ? '#dcfce7' : '#fee2e2',
-                            color: relatorRagDocs.cljrf_encontrado ? '#15803d' : '#b91c1c' }}>
-                            {relatorRagDocs.cljrf_encontrado ? '✓' : '✗'} CLJRF
-                          </span>
-                          <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 600,
-                            background: '#f0f9ff', color: '#0369a1' }}>
-                            {relatorRagDocs.total_texto_extraido}/{relatorRagDocs.total_docs_analisados} com texto extraído
-                          </span>
-                        </div>
-
-                        {/* Lista de docs da Procuradoria */}
-                        {relatorRagDocs.procuradoria.length > 0 && (
-                          <div style={{ marginBottom: '8px' }}>
-                            <p style={{ margin: '0 0 4px', fontSize: '0.69rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Procuradoria</p>
-                            {relatorRagDocs.procuradoria.map((d, i) => (
-                              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '4px 6px',
-                                background: '#f9fafb', borderRadius: '5px', marginBottom: '3px', fontSize: '0.74rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
-                                  <span style={{ color: '#374151', flex: 1 }}>{d.nome}</span>
-                                  <span style={{ fontSize: '0.67rem', padding: '1px 5px', borderRadius: '999px', flexShrink: 0,
-                                    background: d.texto_extraido ? '#dcfce7' : '#fef3c7',
-                                    color: d.texto_extraido ? '#15803d' : '#92400e' }}>
-                                    {d.texto_extraido ? 'Texto OK' : 'PDF imagem'}
-                                  </span>
-                                </div>
-                                {d.url && <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontSize: '0.67rem', textDecoration: 'underline' }}>Ver no SAPL</a>}
-                                {d.trecho && <span style={{ color: '#6b7280', fontSize: '0.67rem', fontStyle: 'italic', borderLeft: '2px solid #d1d5db', paddingLeft: '6px', marginTop: '2px' }}>{d.trecho.slice(0, 200)}…</span>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Lista de docs de Comissões */}
-                        {relatorRagDocs.comissoes.length > 0 && (
-                          <div>
-                            <p style={{ margin: '0 0 4px', fontSize: '0.69rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Comissões</p>
-                            {relatorRagDocs.comissoes.map((d, i) => (
-                              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '4px 6px',
-                                background: '#f9fafb', borderRadius: '5px', marginBottom: '3px', fontSize: '0.74rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
-                                  <span style={{ color: '#374151', flex: 1 }}>{d.nome}</span>
-                                  <span style={{ fontSize: '0.67rem', padding: '1px 5px', borderRadius: '999px', flexShrink: 0,
-                                    background: d.texto_extraido ? '#dcfce7' : '#fef3c7',
-                                    color: d.texto_extraido ? '#15803d' : '#92400e' }}>
-                                    {d.texto_extraido ? 'Texto OK' : 'PDF imagem'}
-                                  </span>
-                                </div>
-                                {d.url && <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontSize: '0.67rem', textDecoration: 'underline' }}>Ver no SAPL</a>}
-                                {d.trecho && <span style={{ color: '#6b7280', fontSize: '0.67rem', fontStyle: 'italic', borderLeft: '2px solid #d1d5db', paddingLeft: '6px', marginTop: '2px' }}>{d.trecho.slice(0, 200)}…</span>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {relatorRagDocs.total_docs_analisados === 0 && (
-                          <p style={{ fontSize: '0.74rem', color: '#9ca3af', margin: 0 }}>Nenhum documento acessório encontrado para esta matéria.</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* PAINEL DIREITO — Geração */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className={styles.formCard}>
-                <h3 style={{ margin: '0 0 12px', fontSize: '0.95rem', fontWeight: 700, color: '#1c4076', display: 'flex', alignItems: 'center', gap: '7px' }}>
-                  <Gavel size={17} /> Gerar Parecer
-                </h3>
-
-                {/* Aviso rascunho existente */}
-                {materiaContexto && materiaContexto.rascunhos.length > 0 && (
-                  <div style={{ padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '7px', marginBottom: '12px', fontSize: '0.76rem', color: '#92400e' }}>
-                    Rascunho gerado em {new Date(materiaContexto.rascunhos[0].created_at).toLocaleDateString('pt-BR')} ({materiaContexto.rascunhos[0].commission_sigla} — {materiaContexto.rascunhos[0].voto}). Gerar novamente substituirá.
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {/* Comissão */}
-                  <div className={styles.formGroup}>
-                    <label>Comissão</label>
-                    <select className={styles.select} value={relatorComissao} onChange={e => setRelatorComissao(e.target.value)}>
-                      {comissoesDisponiveis.map(c => <option key={c.sigla} value={c.sigla}>{c.sigla} — {c.nome}</option>)}
+                {/* 2.3 Bloco Gerar Parecer */}
+                <div className={styles.relatoriaGerarCard}>
+                  <div className={styles.relatoriaGerarHeader}>
+                    <span className={styles.relatoriaGerarTitle}><Gavel size={16} /> Gerar Parecer</span>
+                    {relatorNome ? (
+                      <span className={styles.relatoriaGerarRelator}>Relator: {relatorNome}</span>
+                    ) : (
+                      <input type="text" placeholder="Nome do relator"
+                        value={relatorNome} onChange={e => setRelatorNome(e.target.value)}
+                        style={{ padding: '4px 10px', border: '1px solid #c7d2e0', borderRadius: 6, fontSize: '0.78rem', background: '#fff', width: 180 }} />
+                    )}
+                    <select className={styles.relatoriaGerarModelSelect} value={modelType} onChange={e => setModelType(e.target.value)}>
+                      <option value="flash">Flash</option>
+                      <option value="pro">Pro</option>
                     </select>
                   </div>
 
-                  {/* Relator */}
-                  <div className={styles.formGroup}>
-                    <label>Relator</label>
-                    <input type="text" className={styles.input} value={relatorNome}
-                      onChange={e => setRelatorNome(e.target.value)} placeholder="Nome do relator" />
-                  </div>
-
-                  {/* Modelo */}
-                  <div className={styles.formGroup}>
-                    <label>Modelo IA</label>
-                    <div className={styles.inputWithIcon}>
-                      <BrainCircuit className={styles.inputIcon} size={16} />
-                      <select className={styles.select} value={modelType} onChange={e => setModelType(e.target.value)}>
-                        <option value="flash">Gemini 2.5 Flash</option>
-                        <option value="pro">Gemini 2.5 Pro</option>
-                      </select>
+                  {/* Aviso rascunho existente */}
+                  {materiaContexto.rascunhos.length > 0 && (
+                    <div style={{ padding: '6px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, marginBottom: 10, fontSize: '0.74rem', color: '#92400e' }}>
+                      Rascunho existente ({materiaContexto.rascunhos[0].commission_sigla} — {materiaContexto.rascunhos[0].voto}, {new Date(materiaContexto.rascunhos[0].created_at).toLocaleDateString('pt-BR')}). Gerar novamente substituirá.
                     </div>
-                  </div>
+                  )}
 
-                  {/* Botão principal — análise autônoma */}
-                  <button
-                    onClick={() => handleGerarRelator('autonomo')}
-                    className={styles.generateButton}
-                    disabled={isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila}
-                  >
-                    {isGerandoRelator ? (
-                      <><Loader2 size={17} className={styles.spinIcon} /> Elaborando parecer...</>
-                    ) : (
-                      <><Gavel size={17} /> Analisar pela Atribuição da Comissão</>
-                    )}
-                  </button>
-
-                  {/* Botões de voto direcionado — FAVORÁVEL e CONTRÁRIO */}
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      onClick={() => handleGerarRelator('forcar_favoravel')}
-                      disabled={isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila}
-                      style={{
-                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                        padding: '9px 12px', borderRadius: '8px', border: '1.5px solid #16a34a', cursor: 'pointer',
-                        background: isGerandoRelator ? '#f0fdf4' : '#fff', color: '#15803d',
-                        fontWeight: 700, fontSize: '0.8rem', transition: 'all 0.15s',
-                        opacity: (isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila) ? 0.5 : 1,
-                      }}
-                      onMouseEnter={e => { if (!isGerandoRelator) { e.currentTarget.style.background = '#dcfce7'; } }}
-                      onMouseLeave={e => { e.currentTarget.style.background = isGerandoRelator ? '#f0fdf4' : '#fff'; }}
-                    >
-                      <CheckCircle size={15} /> FAVORÁVEL
+                  <div className={styles.relatoriaGerarButtons}>
+                    <button onClick={() => handleGerarRelator('autonomo')}
+                      className={styles.relatoriaGerarBtnPrimary}
+                      disabled={isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila}>
+                      {isGerandoRelator ? <><Loader2 size={15} className={styles.spinIcon} /> Elaborando...</> : <><BrainCircuit size={15} /> Analisar pela Atribuição</>}
                     </button>
-                    <button
-                      onClick={() => handleGerarRelator('forcar_contrario')}
-                      disabled={isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila}
-                      style={{
-                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                        padding: '9px 12px', borderRadius: '8px', border: '1.5px solid #dc2626', cursor: 'pointer',
-                        background: isGerandoRelator ? '#fef2f2' : '#fff', color: '#b91c1c',
-                        fontWeight: 700, fontSize: '0.8rem', transition: 'all 0.15s',
-                        opacity: (isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila) ? 0.5 : 1,
-                      }}
-                      onMouseEnter={e => { if (!isGerandoRelator) { e.currentTarget.style.background = '#fee2e2'; } }}
-                      onMouseLeave={e => { e.currentTarget.style.background = isGerandoRelator ? '#fef2f2' : '#fff'; }}
-                    >
-                      <FileWarning size={15} /> CONTRÁRIO
+                    <button onClick={() => handleGerarRelator('forcar_favoravel')}
+                      className={styles.relatoriaGerarBtnFavoravel}
+                      disabled={isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila}>
+                      <CheckCircle size={14} /> Favorável
+                    </button>
+                    <button onClick={() => handleGerarRelator('forcar_contrario')}
+                      className={styles.relatoriaGerarBtnContrario}
+                      disabled={isGerandoRelator || !relatorNome.trim() || !selectedMateriaFila}>
+                      <FileWarning size={14} /> Contrário
                     </button>
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.67rem', color: '#9ca3af', textAlign: 'center', lineHeight: 1.4 }}>
-                    Os botões acima direcionam o voto — a IA buscará os melhores fundamentos jurídicos para sustentá-lo.
-                  </p>
 
-                  {!selectedMateriaFila && (
-                    <p style={{ margin: 0, fontSize: '0.74rem', color: '#9ca3af', textAlign: 'center' }}>
-                      Selecione uma matéria na fila ou use "Buscar por ID"
+                  {!relatorNome.trim() && (
+                    <p style={{ margin: '8px 0 0', fontSize: '0.7rem', color: '#b91c1c', textAlign: 'center' }}>
+                      Configure o nome do relator nas configurações do gabinete.
                     </p>
                   )}
-                  {/* Nota informativa sobre fundamentação da comissão */}
+
+                  {/* Nota comissão */}
                   {(() => {
                     const c = comissoesDisponiveis.find(x => x.sigla === relatorComissao);
                     return c ? (
-                      <div style={{ padding: '8px 10px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '7px', fontSize: '0.72rem', color: '#0369a1', lineHeight: 1.5 }}>
-                        <strong>{c.sigla}</strong> — {c.area || c.nome}<br/>
-                        <span style={{ color: '#64748b' }}>Regimento Interno da CMBV — Resolução 93/1998</span>
+                      <div style={{ marginTop: 10, padding: '6px 10px', background: 'rgba(255,255,255,0.6)', borderRadius: 6, fontSize: '0.7rem', color: '#475569', lineHeight: 1.5 }}>
+                        <strong>{c.sigla}</strong> — {c.area || c.nome} · Regimento Interno CMBV
                       </div>
                     ) : null;
                   })()}
                 </div>
-              </div>
 
-              {/* Resultado */}
-              {isGerandoRelator && (
-                <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '32px 16px', textAlign: 'center', background: '#fff' }}>
-                  <LogoLoader size={72} />
-                  <p style={{ color: '#6b7280', fontSize: '0.82rem', marginTop: '12px' }}>Buscando dados no SAPL e elaborando o parecer...</p>
-                </div>
-              )}
-              {relatorResult && !isGerandoRelator && (
-                <div className={styles.documentViewer}>
-                  <div className={styles.documentHeader}>
-                    <div className={styles.documentTitleGroup}>
-                      <span className={styles.documentSparkle}>✦</span>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1f2937' }}>PARECER DE RELATOR</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={handleExportRelatorOdt} className={styles.exportButton} style={{ background: '#0284c7', color: 'white', borderColor: '#0369a1' }}>
-                        <FileText size={15} /> SAPL (.odt)
-                      </button>
-                      <button onClick={handleExportRelatorDocx} className={styles.exportButton}>
-                        <Download size={15} /> DOCX
-                      </button>
-                    </div>
+                {/* 2.4 Resultado do Parecer */}
+                {isGerandoRelator && (
+                  <div className={styles.relatoriaResultCard} style={{ padding: '32px 16px', textAlign: 'center' }}>
+                    <LogoLoader size={72} />
+                    <p style={{ color: '#6b7280', fontSize: '0.82rem', marginTop: 12 }}>Buscando dados no SAPL e elaborando o parecer...</p>
                   </div>
-                  <A4DocumentViewer>
-                    <div style={{ marginBottom: '32px', borderBottom: '2px solid #e5e7eb', paddingBottom: '16px' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1c4076', textTransform: 'uppercase' }}>
-                        Relatoria — {relatorComissao}
-                      </span>
-                      <h3 style={{ margin: '4px 0 0', fontSize: '1.1rem' }}>{relatorTitulo}</h3>
+                )}
+                {relatorResult && !isGerandoRelator && (
+                  <div className={styles.documentViewer}>
+                    <div className={styles.documentHeader}>
+                      <div className={styles.documentTitleGroup}>
+                        <span className={styles.documentSparkle}>✦</span>
+                        <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1f2937' }}>PARECER DE RELATOR</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={handleExportRelatorOdt} className={styles.exportButton} style={{ background: '#0284c7', color: 'white', borderColor: '#0369a1' }}>
+                          <FileText size={15} /> SAPL (.odt)
+                        </button>
+                        <button onClick={handleExportRelatorDocx} className={styles.exportButton}>
+                          <Download size={15} /> DOCX
+                        </button>
+                      </div>
                     </div>
-                    <div className={styles.markdownContent}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{relatorResult}</ReactMarkdown>
-                    </div>
-                  </A4DocumentViewer>
-                </div>
-              )}
+                    <A4DocumentViewer>
+                      <div style={{ marginBottom: 32, borderBottom: '2px solid #e2e8f0', paddingBottom: 16 }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1c4076', textTransform: 'uppercase' }}>
+                          Relatoria — {relatorComissao}
+                        </span>
+                        <h3 style={{ margin: '4px 0 0', fontSize: '1.1rem' }}>{relatorTitulo}</h3>
+                      </div>
+                      <div className={styles.markdownContent}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{relatorResult}</ReactMarkdown>
+                      </div>
+                    </A4DocumentViewer>
+                  </div>
+                )}
+              </>)}
             </div>
           </div>
         </div>
@@ -2093,16 +2026,16 @@ export default function PareceresDashboard() {
 
             {!parecerResult && !isGenerating && (
                     <div className={styles.emptyState}>
-                      <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'var(--primary-50, #eff6ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--primary-100, #dbeafe)' }}>
-                        <FileText size={32} color="var(--primary-400, #60a5fa)" />
+                      <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--primary-50, #eff6ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--primary-100, #dbeafe)' }}>
+                        <FileText size={24} color="var(--primary-400, #60a5fa)" />
                       </div>
-                      <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>Pronta para iniciar</h3>
-                      <p style={{ fontSize: '0.875rem', color: '#6b7280', maxWidth: '380px', lineHeight: 1.6 }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>Pronta para iniciar</h3>
+                      <p style={{ fontSize: '0.8125rem', color: '#6b7280', maxWidth: '380px', lineHeight: 1.5, margin: 0 }}>
                         Selecione uma sessão ao lado, escolha as matérias desejadas e clique em <strong>Gerar Resumo</strong>.
                       </p>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px', textAlign: 'left', maxWidth: '320px', width: '100%' }}>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px', textAlign: 'center' }}>Fluxo rápido</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', textAlign: 'left', maxWidth: '320px', width: '100%' }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px', textAlign: 'center' }}>Fluxo rápido</div>
                         {[
                           { n: '1', text: 'Clique em "Buscar no SAPL" para atualizar sessões' },
                           { n: '2', text: 'Selecione a sessão desejada' },
@@ -2116,7 +2049,7 @@ export default function PareceresDashboard() {
                         ))}
                       </div>
 
-                      <div style={{ marginTop: '12px', fontSize: '0.8125rem', color: '#475569', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', maxWidth: '380px', lineHeight: 1.5 }}>
+                      <div style={{ marginTop: '6px', fontSize: '0.75rem', color: '#475569', background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', maxWidth: '380px', lineHeight: 1.4 }}>
                         <Lightbulb size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: '4px' }} />
                         <strong>Dica:</strong> Se a pauta não apareceu, use <strong>&quot;Pauta em PDF&quot;</strong> ou cole o link em <strong>&quot;Link Direto&quot;</strong>.
                       </div>

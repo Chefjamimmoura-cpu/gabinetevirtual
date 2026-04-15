@@ -1,6 +1,6 @@
 'use client';
 import React, { useMemo, useState } from 'react';
-import { Search, Info, ArrowRight } from 'lucide-react';
+import { Search, Info, ArrowRight, Loader2 } from 'lucide-react';
 import styles from './comissao-wizard.module.css';
 import { MateriaFila } from './types';
 
@@ -84,6 +84,15 @@ export function Step1Selecao({
 
   const allSelected = selectedIds.size === materias.length && materias.length > 0;
 
+  if (loading) {
+    return (
+      <div style={{ padding: '32px 12px', textAlign: 'center' }}>
+        <Loader2 size={24} color="#94a3b8" className={styles.spinIcon} />
+        <p style={{ color: '#9ca3af', fontSize: '0.78rem', marginTop: 8 }}>Carregando fila...</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <div className={styles.searchBar}>
@@ -118,7 +127,6 @@ export function Step1Selecao({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '50vh', overflowY: 'auto', paddingRight: 4 }}>
-        {loading && <div style={{ padding: '32px 0', textAlign: 'center', color: '#9ca3af', fontSize: '0.82rem' }}>Carregando matérias...</div>}
         {!loading && filtered.length === 0 && (
           <div style={{ padding: '32px 0', textAlign: 'center', color: '#9ca3af', fontSize: '0.82rem' }}>
             {searchQuery || filterTipo ? 'Nenhuma matéria encontrada com esses filtros.' : 'Nenhuma matéria na fila desta comissão.'}
