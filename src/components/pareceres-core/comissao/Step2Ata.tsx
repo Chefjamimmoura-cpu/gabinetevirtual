@@ -3,26 +3,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, ArrowRight, FileText, Loader2, Building2, Users, Check } from 'lucide-react';
 import { DocumentPreview } from './DocumentPreview';
 import styles from './comissao-wizard.module.css';
-
-interface MateriaFila {
-  id: number;
-  tipo_sigla: string;
-  numero: number;
-  ano: number;
-  ementa: string;
-  autores: string;
-  [key: string]: unknown;
-}
-
-interface ComissaoMembro { nome: string; cargo: string; }
-
-interface ComissaoConfig {
-  sigla: string;
-  nome: string;
-  artigoRegimento?: string;
-  area?: string;
-  link_lei?: string;
-}
+import { MateriaFila, ComissaoMembro, ComissaoConfig } from './types';
 
 interface Step2AtaProps {
   materias: MateriaFila[];

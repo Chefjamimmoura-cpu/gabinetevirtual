@@ -2,15 +2,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, History, RotateCcw } from 'lucide-react';
 import styles from './comissao-wizard.module.css';
-
-interface Reuniao {
-  id: number;
-  data_sessao: string;
-  commission_sigla: string;
-  materia_ids: number[];
-  total_materias: number;
-  pareceres_gerados: number;
-}
+import { Reuniao } from './types';
 
 interface ReunioesHistoricoProps {
   reunioes: Reuniao[];

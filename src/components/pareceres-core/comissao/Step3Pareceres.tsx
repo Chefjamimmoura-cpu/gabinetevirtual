@@ -3,19 +3,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Check, Loader2, ExternalLink, Building2 } from 'lucide-react';
 import { DocumentPreview } from './DocumentPreview';
 import styles from './comissao-wizard.module.css';
-
-interface MateriaFila {
-  id: number;
-  tipo_sigla: string;
-  numero: number;
-  ano: number;
-  ementa: string;
-  autores: string;
-  sapl_url?: string;
-  [key: string]: unknown;
-}
-
-interface ParecerResult { texto: string; voto: string; }
+import { MateriaFila, ParecerResult } from './types';
 
 interface Step3PareceresProps {
   materias: MateriaFila[];

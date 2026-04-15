@@ -2,18 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { Search, Info, ArrowRight } from 'lucide-react';
 import styles from './comissao-wizard.module.css';
-
-interface MateriaFila {
-  id: number;
-  tipo_sigla: string;
-  numero: number;
-  ano: number;
-  ementa: string;
-  autores: string;
-  data_tramitacao?: string | null;
-  status_relatoria?: string;
-  [key: string]: unknown;
-}
+import { MateriaFila } from './types';
 
 interface Step1SelecaoProps {
   materias: MateriaFila[];

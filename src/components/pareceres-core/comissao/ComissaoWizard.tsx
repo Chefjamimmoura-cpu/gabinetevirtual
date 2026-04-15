@@ -5,43 +5,7 @@ import { Step1Selecao } from './Step1Selecao';
 import { Step2Ata } from './Step2Ata';
 import { Step3Pareceres } from './Step3Pareceres';
 import { ReunioesHistorico } from './ReunioesHistorico';
-
-interface MateriaFila {
-  id: number;
-  tipo_sigla: string;
-  numero: number;
-  ano: number;
-  ementa: string;
-  autores: string;
-  sapl_url?: string;
-  data_tramitacao?: string | null;
-  status_relatoria?: string;
-  [key: string]: unknown;
-}
-
-interface ComissaoConfig {
-  sigla: string;
-  nome: string;
-  artigoRegimento?: string;
-  area?: string;
-  link_lei?: string;
-  sapl_unit_id?: number;
-  sapl_comissao_id?: number;
-  meu_cargo?: string;
-}
-
-interface ComissaoMembro { nome: string; cargo: string; }
-
-interface Reuniao {
-  id: number;
-  data_sessao: string;
-  commission_sigla: string;
-  materia_ids: number[];
-  total_materias: number;
-  pareceres_gerados: number;
-}
-
-interface ParecerResult { texto: string; voto: string; }
+import { MateriaFila, ComissaoConfig, ComissaoMembro, Reuniao, ParecerResult } from './types';
 
 interface ComissaoWizardProps {
   comissaoSigla: string;
