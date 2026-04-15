@@ -67,44 +67,76 @@ function buildRecomendacaoRuns(text: string): (TextRun | ExternalHyperlink)[] {
 }
 
 /**
- * Normaliza texto de título de item: converte "TIPO NUM/ANO (URL)" para "[TIPO NUM/ANO](URL)"
- * caso a IA não gere o formato markdown correto de hyperlink.
+ * Extrai texto âncora limpo de uma URL do SAPL.
+ * Evita exibir a URL crua como texto visível no documento.
+ */
+function extractAnchorTextFromUrl(url: string): string {
+  if (/\/materia\/\d+/.test(url))          return 'Ver matéria no SAPL';
+  if (/\/parlamentar\/documento\//.test(url)) return 'Ver documento';
+  if (/\/comissao\//.test(url))             return 'Ver comissão';
+  if (/sapl\./.test(url))                   return 'Ver no SAPL';
+  return 'Ver link';
+}
+
+/**
+ * Normaliza texto de qualquer linha: converte formas sem markdown de link para markdown.
+ * Cobre:
+ *   "SIGLA NUM/ANO (URL)"  → "[SIGLA NUM/ANO](URL)"
+ *   "SIGLA NUM/ANO URL"    → "[SIGLA NUM/ANO](URL)"  (URL sem parênteses)
  */
 function normalizeLinkInTitle(text: string): string {
-  // Tenta: "... SIGLA NUM/ANO (https://...)" → "... [SIGLA NUM/ANO](https://...)"
-  return text.replace(
+  // "SIGLA NUM/ANO (URL)" → "[SIGLA NUM/ANO](URL)"
+  let result = text.replace(
     /([A-ZÁÉÍÓÚÃÕÇÀ]+(?:\s+[\d/]+)+)\s+\((https?:\/\/[^)]+)\)/,
     '[$1]($2)'
   );
+  // "SIGLA NUM/ANO URL" (URL nua, sem parênteses) → "[SIGLA NUM/ANO](URL)"
+  result = result.replace(
+    /([A-ZÁÉÍÓÚÃÕÇÀ]+(?:\s+[\d/]+)+)\s+(https?:\/\/\S+)/,
+    '[$1]($2)'
+  );
+  return result;
 }
 
 /** Parseia markdown inline em TextRuns do docx (sem highlight — use buildRecomendacaoRuns para linhas de voto) */
 function parseMarkdownCustom(text: string, _unused?: boolean, size: number = 24): (TextRun | ExternalHyperlink)[] {
   const runs: (TextRun | ExternalHyperlink)[] = [];
-  // Padrões: [texto](url) | URL nua em parênteses (url) | **negrito** | *itálico* | texto simples
-  const regex = /\[([^\]]+)\]\(([^)]+)\)|\((https?:\/\/[^)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|([^*[(]+)/g;
+  // Padrões (ordem importa): [texto](url) | (url) com URL | URL nua | **negrito** | *itálico* | (texto normal) | texto simples
+  // O grupo de parênteses não-URL captura "(sigla)" como texto normal para não perder o "("
+  const regex = /\[([^\]]+)\]\(([^)]+)\)|\((https?:\/\/[^)]+)\)|(https?:\/\/[^\s)]+)|\*\*([^*]+)\*\*|\*([^*]+)\*|(\([^)]*\))|([^*[(\n]+)/g;
   const base = { size: size as never, font: 'Times New Roman' as never };
   let match;
 
   while ((match = regex.exec(text)) !== null) {
     if (match[1] && match[2]) {
-      // Formato markdown: [texto](url)
+      // Formato markdown: [texto](url) — usa o texto tal como vem
       runs.push(new ExternalHyperlink({
-        children: [new TextRun({ text: match[1], color: '0563C1', underline: {}, ...base } as never)],
+        children: [new TextRun({ text: match[1], style: 'Hyperlink', color: '0563C1', underline: {}, ...base } as never)],
         link: match[2]
       }));
     } else if (match[3]) {
-      // URL nua em parênteses: (https://...) — usa a URL como texto do link também
+      // URL em parênteses sem âncora: (https://...) — exibe texto limpo, não a URL crua
+      const anchorText = extractAnchorTextFromUrl(match[3]);
       runs.push(new ExternalHyperlink({
-        children: [new TextRun({ text: match[3], color: '0563C1', underline: {}, ...base } as never)],
+        children: [new TextRun({ text: anchorText, style: 'Hyperlink', color: '0563C1', underline: {}, ...base } as never)],
         link: match[3]
       }));
     } else if (match[4]) {
-      runs.push(new TextRun({ text: match[4], bold: true, ...base } as never));
+      // URL nua (sem parênteses): https://... — exibe texto limpo
+      const anchorText = extractAnchorTextFromUrl(match[4]);
+      runs.push(new ExternalHyperlink({
+        children: [new TextRun({ text: anchorText, style: 'Hyperlink', color: '0563C1', underline: {}, ...base } as never)],
+        link: match[4]
+      }));
     } else if (match[5]) {
-      runs.push(new TextRun({ text: match[5], italics: true, ...base } as never));
+      runs.push(new TextRun({ text: match[5], bold: true, ...base } as never));
     } else if (match[6]) {
-      runs.push(new TextRun({ text: match[6], ...base } as never));
+      runs.push(new TextRun({ text: match[6], italics: true, ...base } as never));
+    } else if (match[7]) {
+      // Parênteses normais (não-URL): "(CASP)", "(PROGE)", "(Art. 30)" etc.
+      runs.push(new TextRun({ text: match[7], ...base } as never));
+    } else if (match[8]) {
+      runs.push(new TextRun({ text: match[8], ...base } as never));
     }
   }
   return runs;
@@ -159,9 +191,34 @@ export async function generateDocxBuffer(
   totalMaterias: number,
   dataSessao?: string
 ): Promise<Buffer> {
-  const dataFmt = new Date(dataSessao || Date.now()).toLocaleDateString('pt-BR', { 
-    day: '2-digit', month: '2-digit', year: 'numeric' 
-  });
+  // Parse robusto da data: aceita ISO ("2026-04-01"), DD.MM.YYYY, DD/MM/YYYY,
+  // ou strings tipo "Ordem do Dia - 01.04.2026" (extrai a data embutida).
+  let dataFmt: string;
+  {
+    let parsed: Date | null = null;
+    const raw = dataSessao || '';
+    // Tenta extrair DD.MM.YYYY ou DD/MM/YYYY de qualquer posição na string
+    const brMatch = raw.match(/(\d{2})[./](\d{2})[./](\d{4})/);
+    if (brMatch) {
+      parsed = new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}T12:00:00`);
+    }
+    // Tenta ISO direto (YYYY-MM-DD)
+    if (!parsed || isNaN(parsed.getTime())) {
+      const isoMatch = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) parsed = new Date(`${isoMatch[0]}T12:00:00`);
+    }
+    // Fallback: tenta new Date() direto
+    if (!parsed || isNaN(parsed.getTime())) {
+      parsed = new Date(raw);
+    }
+    // Se tudo falhar, usa data atual
+    if (!parsed || isNaN(parsed.getTime())) {
+      parsed = new Date();
+    }
+    dataFmt = parsed.toLocaleDateString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+  }
 
   const children: (Paragraph | Table)[] = [];
 
@@ -225,17 +282,42 @@ export async function generateDocxBuffer(
       }));
     } else if (trimmed.startsWith('#### ') || trimmed.startsWith('Item') || trimmed.startsWith('**Item')) {
       const clean = normalizeLinkInTitle(trimmed.replace(/^#### /, ''));
-      const childrenRuns = parseMarkdownCustom(clean);
+      // Detecta título de PDL: "[PDL Nº ..." → renderiza link bold clicável no próprio nome
+      const pdlLinkMatch = /^\[([^\]]+)\]\(([^)]+)\)/.exec(clean);
+      let childrenRuns: (TextRun | ExternalHyperlink)[];
+      if (pdlLinkMatch) {
+        childrenRuns = [new ExternalHyperlink({
+          children: [new TextRun({
+            text: pdlLinkMatch[1],
+            bold: true,
+            style: 'Hyperlink',
+            color: '0563C1',
+            underline: {},
+            size: 24,
+            font: 'Times New Roman',
+          } as never)],
+          link: pdlLinkMatch[2],
+        })];
+        // Texto após o link (se houver)
+        const afterLink = clean.slice(pdlLinkMatch[0].length).trim();
+        if (afterLink) {
+          childrenRuns.push(...parseMarkdownCustom(' ' + afterLink));
+        }
+      } else {
+        childrenRuns = parseMarkdownCustom(clean);
+      }
       children.push(new Paragraph({
         children: childrenRuns,
-        spacing: { before: 160, after: 100 }
+        spacing: { before: pdlLinkMatch ? 200 : 160, after: 100 }
       }));
     } else if (
       trimmed.startsWith('- ') || trimmed.startsWith('● ') ||
       trimmed.startsWith('○ ') || trimmed.startsWith('* ') ||
       trimmed.startsWith('■ ')
     ) {
-      const clean = trimmed.replace(/^[-●○*■]\s*/, '');
+      const rawClean = trimmed.replace(/^[-●○*■]\s*/, '');
+      // Normaliza links em todas as linhas: "SIGLA NUM/ANO (URL)" → "[SIGLA NUM/ANO](URL)"
+      const clean = normalizeLinkInTitle(rawClean);
       const bulletLevel = isDeepNestedBullet ? 2 : isNestedBullet ? 1 : 0;
       // Relator: italic, 10pt (size=20 half-points); comissão/normal: 12pt (size=24)
       const fontSize = isRelatorLine ? 20 : 24;
@@ -300,8 +382,18 @@ export async function generateDocxBuffer(
 }
 
 /**
- * Gera DOCX de Parecer de Relatoria com cabeçalho correto.
- * Formato: logo → CÂMARA MUNICIPAL → GABINETE VEREADORA [nome] → título "PARECER DA RELATORIA" → comissão.
+ * Gera DOCX de Parecer de Relatoria no estilo oficial da CMBV.
+ *
+ * Formato baseado no modelo aprovado (Relatoria_CASP_PLL_22_2026.docx):
+ * - Cabeçalho: papel timbrado com logo CMBV + gabinete
+ * - Título "PARECER DA RELATORIA" centralizado, bold, sublinhado
+ * - Comissão centralizada, bold, sublinhado
+ * - Dados (Matéria, Autor, Ementa, Relator, Data) como linhas bold justificadas (sem tabela)
+ * - Seções (I, II, III...) bold, justificadas, com recuo de 1ª linha 2.5cm
+ * - Parágrafos justificados com recuo de 1ª linha 2.5cm, entrelinhas 1.5
+ * - Conclusão (parágrafo do voto) bold + sublinhado
+ * - Assinatura: data + nome bold centralizado + cargo
+ * - Sem separadores --- (linhas horizontais)
  */
 export async function generateRelatorDocxBuffer(
   text: string,
@@ -313,7 +405,9 @@ export async function generateRelatorDocxBuffer(
 ): Promise<Buffer> {
   const { commissionNome, commissionSigla, gabineteNome = 'Parlamentar' } = opts;
   const gabineteLabel = `GABINETE VEREADORA ${gabineteNome.toUpperCase()}`;
-  const SIZE = 22; // 11pt
+  const SIZE = 22; // 11pt (22 half-points)
+  const INDENT_FIRST = 1418; // 2.5cm recuo de 1ª linha (como no modelo)
+  const LINE_SPACING = 360; // 1.5 entrelinhas
 
   const children: (Paragraph | Table)[] = [];
 
@@ -321,83 +415,212 @@ export async function generateRelatorDocxBuffer(
   const headerChildren = buildCmbvHeader({ gabineteLabel });
   const footerParams = buildCmbvFooter();
 
-  // Título do documento
+  // Título do documento — centralizado, bold, sublinhado
   children.push(
     new Paragraph({
       children: [new TextRun({ text: 'PARECER DA RELATORIA', bold: true, size: SIZE + 2, font: 'Times New Roman', underline: {} })],
       alignment: AlignmentType.CENTER,
-      spacing: { before: 200, after: 160 },
+      spacing: { before: 200, after: 80, line: LINE_SPACING },
     }),
     new Paragraph({
-      children: [new TextRun({ text: `${commissionNome.toUpperCase()} - ${commissionSigla}`, bold: true, size: SIZE, font: 'Times New Roman' })],
+      children: [new TextRun({ text: `${commissionNome.toUpperCase()} — ${commissionSigla}`, bold: true, size: SIZE, font: 'Times New Roman', underline: {} })],
       alignment: AlignmentType.CENTER,
-      spacing: { after: 300 },
+      spacing: { after: 300, line: LINE_SPACING },
     })
   );
 
-  // Parse do corpo do markdown — pula as primeiras linhas de cabeçalho geradas pela IA
+  // Parse do corpo do markdown
   const linhas = (text || '').split('\n');
   let headerSkipping = true;
-  let docxTableBuffer: string[] = [];
+  let lastSectionWasConclusao = false;
+
+  // Detecta dados do cabeçalho da IA para renderizar como linhas (não tabela)
+  const metaFields: { label: string; value: string }[] = [];
 
   linhas.forEach(linha => {
     const trimmed = linha.trim();
+    // Remove ** do início/fim para análise (a IA pode gerar **CÂMARA MUNICIPAL**)
+    const trimmedClean = trimmed.replace(/^\*\*/, '').replace(/\*\*$/, '');
 
-    // Flush tabela pendente
-    if (!trimmed.startsWith('|') && docxTableBuffer.length > 0) {
-      const tbl = buildDocxTable(docxTableBuffer);
-      if (tbl) children.push(tbl);
-      docxTableBuffer = [];
-    }
+    // ── Linhas redundantes: SEMPRE pular (já estão no papel timbrado / título do DOCX) ──
+    if (
+      /^CÂMARA MUNICIPAL/i.test(trimmedClean) ||
+      /^ESTADO DE RORAIMA/i.test(trimmedClean) ||
+      /^PARECER\s+(Nº|N°|N\.|DA\s+RELATORIA)/i.test(trimmedClean) ||
+      /^```/.test(trimmed)
+    ) return;
 
-    // Pula bloco de cabeçalho gerado pela IA (CÂMARA MUNICIPAL, COMISSÃO, backticks)
+    // Comissão duplicada — pula se é a mesma comissão do título (já renderizado acima)
+    if (/^COMISSÃO\s+DE\s+/i.test(trimmedClean) && trimmedClean.toUpperCase().includes(commissionSigla)) return;
+
+    // Pula bloco de cabeçalho gerado pela IA antes dos metadados
     if (headerSkipping) {
-      if (
-        /^CÂMARA MUNICIPAL/i.test(trimmed) ||
-        /^COMISSÃO\s+DE\s+/i.test(trimmed) ||
-        /^```/.test(trimmed)
-      ) return;
+      if (!trimmed || /^---$/.test(trimmed)) return;
+
+      // Captura tabela de metadados como campos-chave (| Matéria | PLL 20/2026 |)
+      if (trimmed.startsWith('|')) {
+        if (/^\|[\s-:|]+\|$/.test(trimmed)) return;
+        if (/\|\s*Campo\s*\|/i.test(trimmed) || /\|\s*Field\s*\|/i.test(trimmed)) return;
+        const cells = trimmed.split('|').filter(c => c.trim()).map(c => c.trim().replace(/\*\*/g, ''));
+        if (cells.length >= 2) {
+          metaFields.push({ label: cells[0], value: cells[1] });
+        }
+        return;
+      }
+
+      // Se detectamos metaFields da tabela, flush antes de sair do header
+      if (metaFields.length > 0) {
+        for (const f of metaFields) {
+          children.push(new Paragraph({
+            children: [
+              new TextRun({ text: `${f.label.toUpperCase()}: `, bold: true, size: SIZE, font: 'Times New Roman' }),
+              new TextRun({ text: f.value, bold: false, size: SIZE, font: 'Times New Roman' }),
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 60, line: LINE_SPACING },
+          }));
+        }
+        children.push(new Paragraph({ spacing: { after: 200 } }));
+        metaFields.length = 0;
+      }
+
+      // Primeiro conteúdo real → sai do modo header
       headerSkipping = false;
     }
 
+    // Tabelas no corpo: converte para linhas campo:valor (sem renderizar como tabela)
     if (trimmed.startsWith('|')) {
-      docxTableBuffer.push(trimmed);
+      if (/^\|[\s-:|]+\|$/.test(trimmed)) return; // separador
+      if (/\|\s*Campo\s*\|/i.test(trimmed)) return; // header
+      const cells = trimmed.split('|').filter(c => c.trim()).map(c => c.trim().replace(/\*\*/g, ''));
+      if (cells.length >= 2) {
+        children.push(new Paragraph({
+          children: [
+            new TextRun({ text: `${cells[0]}: `, bold: true, size: SIZE, font: 'Times New Roman' }),
+            new TextRun({ text: cells.slice(1).join(' — '), size: SIZE, font: 'Times New Roman' }),
+          ],
+          alignment: AlignmentType.JUSTIFIED,
+          spacing: { after: 60, line: LINE_SPACING },
+        }));
+      }
       return;
     }
 
-    if (!trimmed) { children.push(new Paragraph({ spacing: { after: 100 } })); return; }
+    // Separadores --- → espaço simples (sem linha horizontal)
+    if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+      children.push(new Paragraph({ spacing: { after: 160 } }));
+      return;
+    }
 
-    if (trimmed.startsWith('## ') || trimmed.startsWith('### ')) {
+    // Linha vazia
+    if (!trimmed) {
+      children.push(new Paragraph({ spacing: { after: 100 } }));
+      return;
+    }
+
+    // Detecta seção (## ou ### ou "I —", "II —", "III —")
+    const isSectionHeading = /^#{2,3}\s/.test(trimmed) || /^[IVX]+\s*[—–-]\s/.test(trimmed);
+    if (isSectionHeading) {
       const clean = trimmed.replace(/^#+ /, '').replace(/\*\*/g, '');
+
+      // Pula seção "REFERÊNCIAS SAPL" e "FORMATAÇÃO" — não pertencem ao parecer
+      if (/REFER[ÊE]NCIAS/i.test(clean) || /FORMATA[ÇC][ÃA]O/i.test(clean)) return;
+
+      lastSectionWasConclusao = /CONCLUS[ÃA]O/i.test(clean);
       children.push(new Paragraph({
-        children: [new TextRun({ text: clean, bold: true, underline: {}, size: SIZE, font: 'Times New Roman' })],
-        alignment: AlignmentType.CENTER, spacing: { before: 200, after: 160 },
+        children: [new TextRun({ text: clean, bold: true, size: SIZE, font: 'Times New Roman' })],
+        alignment: AlignmentType.JUSTIFIED,
+        indent: { firstLine: INDENT_FIRST },
+        spacing: { before: 280, after: 160, line: LINE_SPACING },
       }));
-    } else if (trimmed.startsWith('---')) {
+      return;
+    }
+
+    // Blockquote (> texto) — itálico, recuo maior
+    if (trimmed.startsWith('> ')) {
+      const clean = trimmed.replace(/^>\s*/, '').replace(/\*\*/g, '');
+      // Detecta se é o VOTO final (blockquote com # VOTO: ou VOTO FAVORÁVEL/CONTRÁRIO)
+      if (/^#?\s*VOTO/i.test(clean)) {
+        const votoClean = clean.replace(/^#?\s*/, '');
+        children.push(new Paragraph({
+          children: [new TextRun({ text: votoClean, bold: true, size: SIZE + 4, font: 'Times New Roman', underline: {} })],
+          alignment: AlignmentType.JUSTIFIED,
+          indent: { firstLine: INDENT_FIRST },
+          spacing: { before: 200, after: 200, line: LINE_SPACING },
+        }));
+        return;
+      }
       children.push(new Paragraph({
-        spacing: { before: 160, after: 160 },
-        border: { bottom: { style: BorderStyle.SINGLE, size: 4, space: 4, color: 'cccccc' } },
+        children: parseMarkdownCustom(clean, false, SIZE),
+        alignment: AlignmentType.JUSTIFIED,
+        indent: { left: 720, firstLine: 0 },
+        spacing: { after: 80, line: LINE_SPACING },
       }));
-    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      const clean = trimmed.replace(/^[-*]\s*/, '');
+      return;
+    }
+
+    // Linha de VOTO (sem blockquote): "VOTO FAVORÁVEL ao PLL..." ou "**VOTO FAVORÁVEL**..."
+    const trimmedNoBold = trimmed.replace(/\*\*/g, '');
+    if (/^VOTO\s+(FAVOR[ÁA]VEL|CONTR[ÁA]RIO)/i.test(trimmedNoBold)) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmedNoBold, bold: true, size: SIZE + 2, font: 'Times New Roman' })],
+        alignment: AlignmentType.JUSTIFIED,
+        indent: { firstLine: INDENT_FIRST },
+        spacing: { before: 200, after: 200, line: LINE_SPACING },
+      }));
+      return;
+    }
+
+    // Bullets (- ou * ou ●)
+    if (/^[-*●○■]\s/.test(trimmed)) {
+      const clean = normalizeLinkInTitle(trimmed.replace(/^[-*●○■]\s*/, ''));
       children.push(new Paragraph({
         children: parseMarkdownCustom(clean, false, SIZE),
         bullet: { level: 0 },
-        spacing: { after: 80, line: 360 },
+        spacing: { after: 80, line: LINE_SPACING },
         alignment: AlignmentType.JUSTIFIED,
+      }));
+      return;
+    }
+
+    // Parágrafo normal — justificado com recuo de 1ª linha
+    // Na seção CONCLUSÃO: todo parágrafo que começa com "Diante/Pelo/Ante o exposto" vira bold+underline
+    const trimmedForTest = trimmed.replace(/^\*\*/,'');
+    const isConclusionParagraph = lastSectionWasConclusao && /^(Pelo exposto|Diante do exposto|Ante o exposto)/i.test(trimmedForTest);
+    const runs = parseMarkdownCustom(trimmed, false, SIZE);
+
+    if (isConclusionParagraph) {
+      // Parágrafo da conclusão: bold + sublinhado (como no modelo PLL 22)
+      // Renderiza como texto único bold — não tenta re-criar TextRuns (causa perda de texto)
+      const cleanText = trimmed.replace(/\*\*/g, '');
+      children.push(new Paragraph({
+        children: [new TextRun({ text: cleanText, bold: true, underline: {}, size: SIZE, font: 'Times New Roman' } as never)],
+        alignment: AlignmentType.JUSTIFIED,
+        indent: { firstLine: INDENT_FIRST },
+        spacing: { after: 200, line: LINE_SPACING },
       }));
     } else {
       children.push(new Paragraph({
-        children: parseMarkdownCustom(trimmed, false, SIZE),
-        spacing: { after: 100, line: 360 },
+        children: runs,
         alignment: AlignmentType.JUSTIFIED,
+        indent: { firstLine: INDENT_FIRST },
+        spacing: { after: 100, line: LINE_SPACING },
       }));
     }
   });
 
-  if (docxTableBuffer.length > 0) {
-    const tbl = buildDocxTable(docxTableBuffer);
-    if (tbl) children.push(tbl);
+  // Flush metaFields restantes (caso header tenha só tabela)
+  if (metaFields.length > 0) {
+    for (const f of metaFields) {
+      children.push(new Paragraph({
+        children: [
+          new TextRun({ text: `${f.label.toUpperCase()}: `, bold: true, size: SIZE, font: 'Times New Roman' }),
+          new TextRun({ text: f.value, bold: false, size: SIZE, font: 'Times New Roman' }),
+        ],
+        alignment: AlignmentType.JUSTIFIED,
+        spacing: { after: 60, line: LINE_SPACING },
+      }));
+    }
   }
 
   const doc = new Document({
@@ -462,7 +685,7 @@ export async function generateParecerComissaoDocx(
   opts: { commissionNome: string; commissionSigla: string; gabineteNome?: string; membros?: ComissaoMembro[] }
 ): Promise<Buffer> {
   const { commissionNome, commissionSigla, gabineteNome = 'Parlamentar', membros = [] } = opts;
-  const gabineteLabel = `GABINETE VEREADORA ${gabineteNome.toUpperCase()}`;
+  const gabineteLabel = `${opts.commissionNome.toUpperCase()} — ${opts.commissionSigla}`;
   const SIZE = 22; // 11pt
 
   const children: (Paragraph | Table)[] = [];
@@ -553,7 +776,7 @@ export async function generateAtaDocx(
   opts: { commissionNome: string; commissionSigla: string; gabineteNome?: string; membros?: ComissaoMembro[]; dataStr?: string }
 ): Promise<Buffer> {
   const { commissionNome, commissionSigla, gabineteNome = 'Parlamentar', membros = [], dataStr } = opts;
-  const gabineteLabel = `GABINETE VEREADORA ${gabineteNome.toUpperCase()}`;
+  const gabineteLabel = `${opts.commissionNome.toUpperCase()} — ${opts.commissionSigla}`;
   const SIZE = 24; // 12pt — ATA em maiúsculas segue o modelo original
 
   const children: (Paragraph | Table)[] = [];
