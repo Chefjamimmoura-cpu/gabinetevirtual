@@ -82,25 +82,47 @@ async function loadCommissionConfig(db: ReturnType<typeof supabase>): Promise<Co
   }));
 }
 
-type LiveMateria = { id: number; tipo_sigla: string; numero: number; ano: number; ementa: string; autores: string; status_tramitacao?: string };
+type LiveMateria = { id: number; tipo_sigla: string; numero: number; ano: number; ementa: string; autores: string; status_tramitacao?: string; data_tramitacao?: string };
+
+/** Fetch com retry automático (backoff linear 1s × maxRetries).
+ *  Retorna null se todas as tentativas falharem. */
+async function fetchWithRetry(url: string, opts: RequestInit, maxRetries = 3): Promise<Response | null> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(url, { ...opts, signal: AbortSignal.timeout(15000) });
+      if (res.ok) return res;
+      // 429/503 → aguarda antes de tentar novamente
+      if ((res.status === 429 || res.status === 503) && attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, attempt * 1000));
+        continue;
+      }
+      return res; // outros erros HTTP (404, 400 etc) retorna direto para o caller decidir
+    } catch {
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, attempt * 1000));
+      }
+    }
+  }
+  return null;
+}
 
 /** Enriquece um ID de matéria com dados completos do SAPL */
 async function enrichMateria(id: number): Promise<LiveMateria | null> {
   try {
-    const mRes = await fetch(`${SAPL_BASE}/api/materia/materialegislativa/${id}/?format=json`, {
+    const mRes = await fetchWithRetry(`${SAPL_BASE}/api/materia/materialegislativa/${id}/?format=json`, {
       headers: SAPL_HEADERS,
-      signal: AbortSignal.timeout(10000),
     });
-    if (!mRes.ok) return null;
+    if (!mRes?.ok) return null;
     const m = await mRes.json() as {
       id: number; numero: number; ano: number; ementa?: string;
       tipo?: number | { sigla?: string }; __str__?: string; autores?: string;
     };
     let sigla = typeof m.tipo === 'object' ? (m.tipo?.sigla || '') : '';
     if (!sigla && m.__str__) {
-      if (m.__str__.includes('Legislativo')) sigla = 'PLL';
+      if (m.__str__.includes('Decreto Legislativo')) sigla = 'PDL';
       else if (m.__str__.includes('Complementar')) sigla = 'PLC';
-      else if (m.__str__.includes('Decreto Legislativo')) sigla = 'PDL';
+      else if (m.__str__.includes('Executivo')) sigla = 'PLE';
+      else if (m.__str__.includes('Legislativo')) sigla = 'PLL';
       else sigla = 'PL';
     }
     return { id: m.id, tipo_sigla: sigla, numero: m.numero, ano: m.ano, ementa: m.ementa || '', autores: m.autores || '' };
@@ -121,6 +143,7 @@ function parseTramitacaoStr(str: string): { tipo_sigla: string; numero: number; 
   const low = str.toLowerCase();
   if (low.includes('decreto legislativo')) tipo_sigla = 'PDL';
   else if (low.includes('lei complementar')) tipo_sigla = 'PLC';
+  else if (low.includes('executivo')) tipo_sigla = 'PLE';
   else if (low.includes('legislativo')) tipo_sigla = 'PLL';
   return { tipo_sigla, numero, ano };
 }
@@ -130,6 +153,8 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
     const materiaIds = new Set<number>();
     // Mapa materia_id → status da última tramitação (para classificar aberto/tramitado)
     const statusMap = new Map<number, string>();
+    // Mapa materia_id → data da tramitação mais recente nessa comissão
+    const dataTramitacaoMap = new Map<number, string>();
     // Fallback com dados básicos extraídos do __str__ da tramitação (usado se enrichMateria falhar)
     const metaFallback = new Map<number, { tipo_sigla: string; numero: number; ano: number }>();
 
@@ -142,12 +167,9 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
       const dataCorte1AStr = dataCorte1A.toISOString().slice(0, 10);
 
       const urlDestino = `${SAPL_BASE}/api/materia/tramitacao/?unidade_tramitacao_destino=${commission.sapl_unit_id}&data_tramitacao__gte=${dataCorte1AStr}&limit=200&ordering=-data_tramitacao&format=json`;
-      const resDestino = await fetch(urlDestino, {
-        headers: SAPL_HEADERS,
-        signal: AbortSignal.timeout(15000),
-      });
-      if (resDestino.ok) {
-        const json = await resDestino.json() as { results?: { materia?: number; __str__?: string }[] };
+      const resDestino = await fetchWithRetry(urlDestino, { headers: SAPL_HEADERS });
+      if (resDestino?.ok) {
+        const json = await resDestino.json() as { results?: { materia?: number; __str__?: string; data_tramitacao?: string }[] };
         for (const t of (json.results ?? [])) {
           if (t.materia && typeof t.materia === 'number') {
             materiaIds.add(t.materia);
@@ -160,6 +182,9 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
                 const meta = parseTramitacaoStr(t.__str__);
                 if (meta) metaFallback.set(t.materia, meta);
               }
+            }
+            if (t.data_tramitacao && !dataTramitacaoMap.has(t.materia)) {
+              dataTramitacaoMap.set(t.materia, t.data_tramitacao);
             }
           }
         }
@@ -174,11 +199,8 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
       const dataCorteStr = dataCorte.toISOString().slice(0, 10); // YYYY-MM-DD
 
       const urlOrigem = `${SAPL_BASE}/api/materia/tramitacao/?unidade_tramitacao_local=${commission.sapl_unit_id}&data_tramitacao__gte=${dataCorteStr}&limit=200&ordering=-data_tramitacao&format=json`;
-      const resOrigem = await fetch(urlOrigem, {
-        headers: SAPL_HEADERS,
-        signal: AbortSignal.timeout(15000),
-      });
-      if (resOrigem.ok) {
+      const resOrigem = await fetchWithRetry(urlOrigem, { headers: SAPL_HEADERS });
+      if (resOrigem?.ok) {
         const json = await resOrigem.json() as { results?: { materia?: number; __str__?: string; data_tramitacao?: string }[] };
         // Statuses que indicam que a comissão JÁ concluiu a análise — não precisam estar na fila ativa
         const statusConcluidoRegex = /parecer\s+(favor|contrár|aprovad|reprovad)/i;
@@ -202,6 +224,7 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
             if (!firstOccurrenceInB.has(t.materia)) {
               firstOccurrenceInB.add(t.materia);
               if (statusStr) statusMap.set(t.materia, statusStr);
+              if (t.data_tramitacao) dataTramitacaoMap.set(t.materia, t.data_tramitacao);
             }
             if (!metaFallback.has(t.materia) && t.__str__) {
               const meta = parseTramitacaoStr(t.__str__);
@@ -215,12 +238,9 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
     // ── Estratégia 2 (fallback): busca por texto de tramitação ──
     if (materiaIds.size === 0) {
       const url = `${SAPL_BASE}/api/materia/tramitacao/?limit=200&ordering=-data_tramitacao&format=json`;
-      const res = await fetch(url, {
-        headers: SAPL_HEADERS,
-        signal: AbortSignal.timeout(12000),
-      });
-      if (res.ok) {
-        const json = await res.json() as { results?: { materia?: number; __str__?: string; texto?: string }[] };
+      const res = await fetchWithRetry(url, { headers: SAPL_HEADERS });
+      if (res?.ok) {
+        const json = await res.json() as { results?: { materia?: number; __str__?: string; texto?: string; data_tramitacao?: string }[] };
         const filterKw = [
           commission.sigla.toLowerCase(),
           ...(commission.keywords || []).map(k => k.toLowerCase()),
@@ -232,6 +252,9 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
             if (!statusMap.has(t.materia) && t.__str__) {
               const parts = t.__str__.split('|').map(s => s.trim());
               statusMap.set(t.materia, parts[1] || 'Em tramitação');
+            }
+            if (t.data_tramitacao && !dataTramitacaoMap.has(t.materia)) {
+              dataTramitacaoMap.set(t.materia, t.data_tramitacao);
             }
           }
         }
@@ -248,16 +271,16 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
         const id = ids[i];
         // Se enrichMateria funcionou, usa os dados completos
         if (r.status === 'fulfilled' && r.value !== null) {
-          return { ...r.value, status_tramitacao: statusMap.get(r.value.id) || 'Em tramitação' };
+          return { ...r.value, status_tramitacao: statusMap.get(r.value.id) || 'Em tramitação', data_tramitacao: dataTramitacaoMap.get(r.value.id) || '' };
         }
         // Fallback: usa dados básicos do __str__ da tramitação (evita perder a matéria por timeout)
         const meta = metaFallback.get(id);
         if (meta) {
-          return { id, ...meta, ementa: '', autores: '', status_tramitacao: statusMap.get(id) || 'Em tramitação' };
+          return { id, ...meta, ementa: '', autores: '', status_tramitacao: statusMap.get(id) || 'Em tramitação', data_tramitacao: dataTramitacaoMap.get(id) || '' };
         }
         return null;
       })
-      .filter((m): m is LiveMateria & { status_tramitacao: string } => m !== null);
+      .filter((m): m is LiveMateria & { status_tramitacao: string; data_tramitacao: string } => m !== null);
   } catch (err) {
     console.error('[fetchMateriasSaplLive] error:', err);
     return [];
@@ -355,7 +378,8 @@ export async function GET(req: NextRequest) {
     const formatLiveItem = (m: LiveMateria) => ({
       id: m.id, tipo_sigla: m.tipo_sigla, numero: m.numero, ano: m.ano,
       ementa: m.ementa || '', autores: m.autores || '',
-      ultima_tramitacao: m.status_tramitacao || '', data_tramitacao: '',
+      ultima_tramitacao: m.status_tramitacao || '', 
+      data_tramitacao: m.data_tramitacao || '',
       status_tramitacao: m.status_tramitacao || 'Em tramitação',
       sapl_url: `${SAPL_BASE}/materia/${m.id}`,
       source: 'sapl_live' as const,
@@ -402,6 +426,13 @@ export async function GET(req: NextRequest) {
         rascunho_voto: rascunho?.voto ?? null,
         rascunho_em: rascunho?.created_at ?? null,
       };
+    });
+
+    // Ordena por data_tramitacao DESC (mais recente primeiro)
+    result.sort((a, b) => {
+      const da = a.data_tramitacao || '1900-01-01';
+      const db = b.data_tramitacao || '1900-01-01';
+      return db.localeCompare(da);
     });
 
     return NextResponse.json({
