@@ -14,6 +14,7 @@
 // Response: { parecer_comissao?: string, ata?: string, membros, commission, materia }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { fetchMateria, enrichMateria } from '@/lib/sapl/client';
 import { getCommissionBySigla } from '@/lib/parecer/prompts-relator';
 import { resolveAuthorName } from '@/lib/parecer/build-context';
@@ -25,6 +26,9 @@ interface Membro {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   let body: {
     materia_id?: number;
     materia_ids?: number[];

@@ -8,6 +8,7 @@
 //   Body: { comissoes: CommissionDynamic[] }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { createClient } from '@supabase/supabase-js';
 import { COMISSOES_CMBV } from '@/lib/parecer/prompts-relator';
 
@@ -45,7 +46,10 @@ function staticFallback(): CommissionDynamic[] {
   }));
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   try {
     const db = supabase();
     const { data, error } = await db
@@ -71,6 +75,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   let body: { comissoes: CommissionDynamic[] };
   try {
     body = await req.json();

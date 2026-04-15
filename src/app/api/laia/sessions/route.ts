@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const GABINETE_ID = process.env.GABINETE_ID!;
 
@@ -15,6 +16,9 @@ function supabase() {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const { searchParams } = new URL(req.url);
   const status = searchParams.get('status');
   const canal = searchParams.get('canal');

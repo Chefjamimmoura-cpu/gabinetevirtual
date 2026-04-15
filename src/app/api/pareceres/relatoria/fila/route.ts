@@ -16,6 +16,7 @@
 //   offset    — paginação
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { createClient } from '@supabase/supabase-js';
 import { COMISSOES_CMBV } from '@/lib/parecer/prompts-relator';
 
@@ -288,6 +289,9 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const db = supabase();
   const { searchParams } = new URL(req.url);
 

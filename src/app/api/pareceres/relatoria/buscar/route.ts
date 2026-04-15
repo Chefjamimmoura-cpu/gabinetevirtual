@@ -12,6 +12,7 @@
 // Se não encontrado na cache, tenta busca live no SAPL.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { createClient } from '@supabase/supabase-js';
 import { fetchMateria } from '@/lib/sapl/client';
 
@@ -73,6 +74,9 @@ function parseQuery(q: string): ParsedQuery {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q')?.trim();
 

@@ -12,7 +12,8 @@
 // Response: { synced_commissions, vereador_memberships, total_members }
 // ──────────────────────────────────────────────────────────────
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { createClient } from '@supabase/supabase-js';
 
 const SAPL_BASE = 'https://sapl.boavista.rr.leg.br';
@@ -82,7 +83,10 @@ interface SaplParticipacao {
   cargo: number;
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const db = supabase();
 
   // 1. Busca nome do vereador do gabinete para match

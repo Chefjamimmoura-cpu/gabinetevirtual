@@ -11,6 +11,7 @@
 // 3. Fallback: tramitações por data + status de votação (para sessões sem PDF)
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { inflateSync, inflateRawSync } from 'zlib';
 import {
   fetchMateria,
@@ -140,6 +141,9 @@ async function extractMateriaIdsFromPdf(pdfUrl: string): Promise<number[]> {
 
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const sessaoId = req.nextUrl.searchParams.get('sessao');
   if (!sessaoId || isNaN(Number(sessaoId))) {
     return NextResponse.json({ error: 'Parâmetro ?sessao=ID obrigatório' }, { status: 400 });

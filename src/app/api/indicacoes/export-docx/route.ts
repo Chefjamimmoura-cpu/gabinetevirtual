@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateIndicacaoDocxBuffer } from '@/lib/indicacao/generate-docx';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 // POST /api/indicacoes/export-docx
 // Recebe { ementa, texto_md, fotos_urls } e retorna o blob do docx.
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   try {
     const body = await req.json();
     const { ementa, texto_md, fotos_urls, incluir_marca_dagua } = body;

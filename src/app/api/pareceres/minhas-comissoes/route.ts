@@ -9,8 +9,9 @@
 // Response: { comissoes: CommissionWithRole[], source }
 // ──────────────────────────────────────────────────────────────
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { COMISSOES_CMBV } from '@/lib/parecer/prompts-relator';
 
 const GABINETE_ID = process.env.GABINETE_ID!;
@@ -69,7 +70,10 @@ function getStaticConfig(sigla: string): { area: string; criterios: string; keyw
   };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const db = supabase();
 
   try {

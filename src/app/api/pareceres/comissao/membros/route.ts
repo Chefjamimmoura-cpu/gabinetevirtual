@@ -10,6 +10,7 @@
 // Response: { membros: Array<{ nome: string, cargo: string }> }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const SAPL_BASE = 'https://sapl.boavista.rr.leg.br';
 const SAPL_HEADERS = {
@@ -25,6 +26,9 @@ const CARGO_MAP: Record<number, string> = {
 };
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const { searchParams } = new URL(req.url);
   const comissao_id = searchParams.get('comissao_id');
 

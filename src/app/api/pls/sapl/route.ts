@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SAPL_BASE } from '@/lib/sapl/client';
 import { smartTitleCase } from '@/lib/utils/format';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const DEFAULT_VEREADOR_ID = process.env.VEREADOR_AUTOR_ID ? Number(process.env.VEREADOR_AUTOR_ID) : 127;
 
@@ -83,6 +84,9 @@ interface SaplDocAcessorio {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const sp = req.nextUrl.searchParams;
   const page       = sp.get('page') || '1';
   const pageSize   = String(Math.min(parseInt(sp.get('page_size') || '20'), 50));

@@ -9,11 +9,15 @@
 // O cache é preenchido pelo cron POST /api/admin/sync-sapl.
 // ──────────────────────────────────────────────────────────────
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { fetchRecentSessions } from '@/lib/sapl/client';
 import { getCachedSessoes } from '@/lib/sapl/sync';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   // 1. Tenta cache
   try {
     const cached = await getCachedSessoes();

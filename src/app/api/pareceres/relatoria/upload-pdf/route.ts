@@ -12,6 +12,7 @@
 //   { found: false, extracted_text_preview, candidates: [] }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { extractTextFromPdfBuffer } from '@/lib/sapl/ocr';
 
 const SAPL_BASE = 'https://sapl.boavista.rr.leg.br';
@@ -118,6 +119,9 @@ async function resolverMateriaIdNoSapl(tipo: string, numero: number, ano: number
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   let formData: FormData;
   try {
     formData = await req.formData();

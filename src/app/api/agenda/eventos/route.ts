@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const GABINETE_ID = process.env.GABINETE_ID!;
 
@@ -16,6 +17,9 @@ function supabase() {
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const { searchParams } = new URL(req.url);
   const ano  = parseInt(searchParams.get('ano')  ?? String(new Date().getFullYear()));
   const mes  = parseInt(searchParams.get('mes')  ?? String(new Date().getMonth() + 1)); // 1–12
@@ -76,6 +80,9 @@ interface CriarEventoBody {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const db = supabase();
 
   let body: CriarEventoBody;

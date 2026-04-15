@@ -4,6 +4,7 @@
 // e retorna a lista enriquecida (lightEnrichMateria) pronta para o dashboard.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { inflateSync, inflateRawSync } from 'zlib';
 import { fetchMateria, lightEnrichMateria } from '@/lib/sapl/client';
 
@@ -56,6 +57,9 @@ function extractMateriaIdsFromBuffer(buf: Buffer): number[] {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   try {
     const formData = await req.formData();
     const file = formData.get('file');

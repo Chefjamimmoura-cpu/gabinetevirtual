@@ -8,7 +8,8 @@
 // Resposta normalizada: { materias: MateriaItem[] }
 // Sem autenticação: endpoint interno chamado pelo agente ALIA.
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const SAPL_BASE = 'https://sapl.boavista.rr.leg.br/api';
 
@@ -131,7 +132,10 @@ async function buscarSapl(saplUrl: string): Promise<SaplMateria[]> {
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth.error) return auth.error;
+
   try {
     const { searchParams } = new URL(request.url);
 

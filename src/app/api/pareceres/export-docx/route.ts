@@ -4,9 +4,13 @@
 // Body: { parecer: string, total_materias: number, data_sessao?: string }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { generateDocxBuffer, generateRelatorDocxBuffer, generateParecerComissaoDocx, generateAtaDocx, ComissaoMembro } from '@/lib/parecer/generate-docx';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   let body: {
     parecer?: string;
     total_materias?: number;

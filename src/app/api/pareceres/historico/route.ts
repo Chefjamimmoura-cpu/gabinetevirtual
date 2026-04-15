@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 function getSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -15,7 +16,10 @@ function getSupabase() {
   return createClient(supabaseUrl, supabaseKey);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   try {
     const supa = getSupabase();
     if (!supa) return NextResponse.json({ results: [] });
@@ -37,6 +41,9 @@ export async function GET() {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   try {
     const supa = getSupabase();
     if (!supa) return NextResponse.json({ error: 'Config inválida' }, { status: 500 });

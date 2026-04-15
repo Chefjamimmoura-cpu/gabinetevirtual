@@ -1,25 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAuth(req);
+    if (auth.error) return auth.error;
+
     const { id } = await params;
-    
+
     const supabase = await createServerClient();
-    const { data: { user: callingUser }, error: authErr } = await supabase.auth.getUser();
-
-    if (authErr || !callingUser) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
-    }
-
     const { data: callerProfile } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', callingUser.id)
+      .eq('id', auth.user.id)
       .single();
 
-    if (!callerProfile || (callerProfile.role !== 'admin' && callerProfile.role !== 'vereador')) {
+    if (!callerProfile || !['admin', 'vereador', 'superadmin'].includes(callerProfile.role)) {
       return NextResponse.json({ error: 'Permissão negada' }, { status: 403 });
     }
 
@@ -29,7 +27,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       .eq('id', id)
       .single();
       
-    if (!targetProfile || targetProfile.gabinete_id !== callerProfile.gabinete_id) {
+    if (!targetProfile || (callerProfile.role !== 'superadmin' && targetProfile.gabinete_id !== callerProfile.gabinete_id)) {
         return NextResponse.json({ error: 'O usuário não está vinculado ao Gabinete' }, { status: 403 });
     }
 

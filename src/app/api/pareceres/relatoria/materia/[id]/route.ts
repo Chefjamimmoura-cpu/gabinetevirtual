@@ -7,6 +7,7 @@
 //   - Rascunho já gerado neste gabinete (se existir)
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { createClient } from '@supabase/supabase-js';
 import { fetchMateria, enrichMateria } from '@/lib/sapl/client';
 import { resolveAuthorName } from '@/lib/parecer/build-context';
@@ -34,6 +35,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth(_req);
+  if (auth.error) return auth.error;
+
   const { id: idStr } = await params;
   const materiaId = parseInt(idStr);
   if (isNaN(materiaId) || materiaId <= 0) {

@@ -2,7 +2,8 @@
 // Lista as comissões permanentes do SAPL com seus membros.
 // Usado para identificar em quais comissões a vereadora Carol atua.
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { SAPL_BASE } from '@/lib/sapl/client';
 
 const DEFAULT_TIMEOUT = 15000;
@@ -45,7 +46,10 @@ interface SaplMembro {
   __str__?: string;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   try {
     // 1. Buscar comissões permanentes ativas
     const comissoesData = await saplFetch<{ results: SaplComissao[] }>(

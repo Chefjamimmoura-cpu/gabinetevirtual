@@ -13,10 +13,11 @@
 //   {{materia.tipo_sigla}}, {{materia.numero}}, {{materia.ano}}, {{materia.ementa}},
 //   {{voto}}, {{texto_relatorio}}, {{texto_voto_fundamentado}}
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import PizZip from 'pizzip';
 import * as fs from 'fs';
 import * as path from 'path';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const TEMPLATE_DIR = path.resolve(process.cwd(), 'public', 'templates');
 
@@ -65,7 +66,10 @@ function renderOdtXml(xml: string, vars: Record<string, string>): string {
   return result;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   try {
     const body = await req.json() as {
       tipo?: string;

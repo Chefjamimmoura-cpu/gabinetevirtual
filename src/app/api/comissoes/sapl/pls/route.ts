@@ -11,6 +11,7 @@
 //   page_size — quantas matérias buscar do SAPL (padrão: 100)
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 import { SAPL_BASE, fetchTramitacoes, fetchDocumentosAcessorios } from '@/lib/sapl/client';
 
 const DEFAULT_TIMEOUT = 15000;
@@ -93,6 +94,9 @@ function extractComissaoDestino(t: RawTramitacao): string | null {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const { searchParams } = req.nextUrl;
   const comissaoFiltro = (searchParams.get('comissao') || '').toLowerCase();
   const tiposFiltro = (searchParams.get('tipo') || DEFAULT_TIPOS.join(',')).split(',').map(t => t.trim().toUpperCase());

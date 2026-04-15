@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const SYSTEM_PROMPT_ESTRATEGISTA = `Você é a ALIA, assessora parlamentar estratégica sênior do Gabinete da Vereadora Carol Dantas, Câmara Municipal de Boa Vista, Roraima.
 
@@ -38,6 +39,9 @@ VIABILIDADE_POLITICA: "Alta" | "Média" | "Baixa"
 TIPO_SUGERIDO: "PLL" | "DECRETO" | "REQUERIMENTO" | "INDICAÇÃO"`;
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth.error) return auth.error;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'GEMINI_API_KEY não configurada' }, { status: 500 });

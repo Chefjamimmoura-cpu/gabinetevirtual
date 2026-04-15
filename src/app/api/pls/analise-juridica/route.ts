@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const SYSTEM_PROMPT_JURIDICA = `Você é a ALIA, consultora jurídica especializada em direito municipal e constitucional brasileiro, do Gabinete da Vereadora Carol Dantas, Câmara Municipal de Boa Vista, Roraima.
 
@@ -55,6 +56,9 @@ ESCALA DE RISCO: baixo | medio | alto
 VIABILIDADE: aprovado | condicional | reprovado`;
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth.error) return auth.error;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'GEMINI_API_KEY não configurada' }, { status: 500 });
