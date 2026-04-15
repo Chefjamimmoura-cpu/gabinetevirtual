@@ -39,10 +39,20 @@ function parseEnvKeys(filePath) {
 
 // Variáveis opcionais (legacy, fallback, ou não críticas para dev)
 const OPTIONAL = new Set([
+  // Fala Cidadão (legacy, será substituído)
   'FALA_CIDADAO_API_URL', 'FALA_CIDADAO_APP_KEY',
   'FALA_CIDADAO_LOGIN', 'FALA_CIDADAO_PASSWORD',
-  'ALIA_NOTIFY_NUMBERS', 'STRIPE_WEBHOOK_SECRET',
-  'ANTHROPIC_API_KEY', 'SAPL_API_TOKEN', 'SAPL_USUARIO_ENVIO_ID',
+  // WhatsApp/Evolution (ativado por gabinete, QR code pendente)
+  'EVOLUTION_API_URL', 'EVOLUTION_API_KEY',
+  'EVOLUTION_INSTANCE', 'EVOLUTION_WEBHOOK_SECRET',
+  // SAPL (configurável por gabinete via UI)
+  'SAPL_API_TOKEN', 'SAPL_USUARIO_ENVIO_ID', 'SAPL_AUTOR_ID',
+  // Sync/Cron (VPS-only, não necessário em dev)
+  'SYNC_SECRET', 'CRON_SECRET',
+  // Auth (dev usa localhost, prod precisa)
+  'NEXTAUTH_URL',
+  // IA alternativa e notificações
+  'ALIA_NOTIFY_NUMBERS', 'STRIPE_WEBHOOK_SECRET', 'ANTHROPIC_API_KEY',
 ]);
 
 const exampleKeys = parseEnvKeys(examplePath);
