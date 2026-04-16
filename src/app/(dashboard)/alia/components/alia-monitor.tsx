@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import LaiaMonitorSession from './laia-monitor-session';
+import AliaMonitorSession from './alia-monitor-session';
 import { Smartphone, Monitor as MonitorIcon, Search, MessageSquare } from 'lucide-react';
-import styles from '../laia-dashboard.module.css';
+import styles from '../alia-dashboard.module.css';
 
 interface Session {
   id: string;
@@ -18,7 +18,7 @@ interface Session {
   ultima_msg_preview: string;
 }
 
-export default function LaiaMonitor() {
+export default function AliaMonitor() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -134,7 +134,7 @@ export default function LaiaMonitor() {
       {/* Main Content */}
       <div className={styles.monitorMainEmpty}>
         {selectedSessionId ? (
-          <LaiaMonitorSession sessionId={selectedSessionId} onUpdate={fetchSessions} />
+          <AliaMonitorSession sessionId={selectedSessionId} onUpdate={fetchSessions} />
         ) : (
           <div className={styles.monitorEmptyContent}>
             <div className={styles.monitorEmptyInner}>

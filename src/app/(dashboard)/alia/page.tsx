@@ -1,5 +1,5 @@
-import LaiaDashboard from './laia-dashboard';
+import AliaDashboard from './alia-dashboard';
 
-export default function LaiaPage() {
-  return <LaiaDashboard />;
+export default function AliaPage() {
+  return <AliaDashboard />;
 }

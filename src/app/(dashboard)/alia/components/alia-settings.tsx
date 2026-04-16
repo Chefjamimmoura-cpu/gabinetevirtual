@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Save, Loader2, Sparkles, BookOpen, Flag, Scale, UserCircle } from 'lucide-react';
-import styles from '../laia-dashboard.module.css';
+import styles from '../alia-dashboard.module.css';
 
 interface AliaConfig {
   political_alignment: string;
@@ -12,7 +12,7 @@ interface AliaConfig {
   custom_instructions: string;
 }
 
-export default function LaiaSettings() {
+export default function AliaSettings() {
   const [config, setConfig] = useState<AliaConfig>({
     political_alignment: '',
     philosophy: '',

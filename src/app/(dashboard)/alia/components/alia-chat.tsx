@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Zap, BookUser, MessageCircle } from 'lucide-react';
-import styles from '../laia-dashboard.module.css';
+import styles from '../alia-dashboard.module.css';
 
 interface Message {
   id: string;
@@ -11,7 +11,7 @@ interface Message {
   created_at: string;
 }
 
-export default function LaiaChat({ agente }: { agente: 'laia' | 'cadin' }) {
+export default function AliaChat({ agente }: { agente: 'laia' | 'cadin' }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');

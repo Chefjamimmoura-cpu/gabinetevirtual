@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert, Bot, BotOff, Send, User, Loader2, MessageCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import styles from '../laia-dashboard.module.css';
+import styles from '../alia-dashboard.module.css';
 
 interface SessionData {
   id: string;
@@ -22,7 +22,7 @@ interface MessageData {
   created_at: string;
 }
 
-export default function LaiaMonitorSession({ sessionId, onUpdate }: { sessionId: string; onUpdate: () => void }) {
+export default function AliaMonitorSession({ sessionId, onUpdate }: { sessionId: string; onUpdate: () => void }) {
   const [session, setSession] = useState<SessionData | null>(null);
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [input, setInput] = useState('');
