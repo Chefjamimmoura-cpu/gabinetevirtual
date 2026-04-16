@@ -10,7 +10,7 @@ import {
   saveMessage,
   type DashboardChatBody,
 } from '@/lib/alia/adapters/dashboard';
-import { process as aliaBrain } from '@/lib/alia/brain';
+import { processRequest as aliaBrain } from '@/lib/alia/brain';
 import { requireAuth } from '@/lib/supabase/auth-guard';
 
 export async function POST(req: NextRequest) {

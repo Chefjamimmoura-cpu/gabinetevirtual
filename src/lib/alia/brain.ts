@@ -37,8 +37,7 @@ const GABINETE_CONFIG: GabineteConfig = {
   comissoes_membro: ['CLJRF', 'COF', 'CASP'],
 };
 
-// Hardcoded gabinete ID that matches the config above
-const GABINETE_ID = 'carol-dantas-cmbv';
+const GABINETE_ID = process.env.GABINETE_ID || 'carol-dantas-cmbv';
 
 // ── Agent registry ────────────────────────────────────────────────────────────
 
@@ -64,7 +63,7 @@ const AGENT_REGISTRY: Record<string, AliaAgent> = {
  * Central brain that orchestrates all ALIA requests.
  * Single entry point regardless of channel (WhatsApp, dashboard, email, cron, api).
  */
-export async function process(request: AliaRequest): Promise<AliaResponse> {
+export async function processRequest(request: AliaRequest): Promise<AliaResponse> {
   const text = request.content.text ?? '';
 
   // ── Step 1: Classify intent ───────────────────────────────────────────────

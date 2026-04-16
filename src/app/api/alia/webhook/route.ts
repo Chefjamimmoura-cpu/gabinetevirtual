@@ -19,7 +19,7 @@ import {
   saveMessage,
   type EvolutionMessage,
 } from '@/lib/alia/adapters/whatsapp';
-import { process as aliaBrain } from '@/lib/alia/brain';
+import { processRequest as aliaBrain } from '@/lib/alia/brain';
 import { checkActionPermission } from '@/lib/alia/auth-guard';
 
 const webhookLimiter = createRateLimiter({ windowMs: 60_000, max: 30 });
