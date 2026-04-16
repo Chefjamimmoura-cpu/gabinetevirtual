@@ -1,4 +1,4 @@
-// POST /api/laia/sessions/[id]/takeover
+// POST /api/alia/sessions/[id]/takeover
 // Assessor assume controle da conversa. A partir deste momento,
 // o webhook da ALIA não responde automaticamente nessa sessão.
 //

@@ -1,4 +1,4 @@
-// POST /api/laia/sessions/[id]/reply
+// POST /api/alia/sessions/[id]/reply
 // Assessor envia uma mensagem manual durante o modo de takeover humano.
 // Se canal=whatsapp, a mensagem é enviada via Evolution API.
 // A mensagem é salva como role='human_agent' no histórico.
@@ -71,7 +71,7 @@ export async function POST(
     .single();
 
   if (msgErr) {
-    console.error('[laia/reply]', msgErr);
+    console.error('[alia/reply]', msgErr);
     return NextResponse.json({ error: msgErr.message }, { status: 500 });
   }
 
@@ -100,7 +100,7 @@ export async function POST(
         enviado_whatsapp = resp.ok;
       }
     } catch (err) {
-      console.error('[laia/reply] erro Evolution API:', err);
+      console.error('[alia/reply] erro Evolution API:', err);
       // não bloqueia — mensagem já foi salva no histórico
     }
   }

@@ -24,13 +24,13 @@ export async function GET(req: NextRequest) {
       .single();
 
     if (error) {
-      console.error('[laia/config] getter error:', error);
+      console.error('[alia/config] getter error:', error);
       return NextResponse.json({ error: 'Falha ao buscar configurações' }, { status: 500 });
     }
 
     return NextResponse.json(data?.config_json || {});
   } catch (err) {
-    console.error('[laia/config] fetch error:', err);
+    console.error('[alia/config] fetch error:', err);
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }
@@ -63,13 +63,13 @@ export async function PUT(req: NextRequest) {
       .eq('id', GABINETE_ID);
 
     if (updateErr) {
-      console.error('[laia/config] setter update error:', updateErr);
+      console.error('[alia/config] setter update error:', updateErr);
       return NextResponse.json({ error: 'Falha ao salvar configurações' }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true, config: newConfig });
   } catch (err) {
-    console.error('[laia/config] post error:', err);
+    console.error('[alia/config] post error:', err);
     return NextResponse.json({ error: 'Erro interno ao salvar configurações' }, { status: 500 });
   }
 }

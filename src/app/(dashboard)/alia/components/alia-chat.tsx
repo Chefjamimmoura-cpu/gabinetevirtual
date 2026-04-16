@@ -38,7 +38,7 @@ export default function AliaChat({ agente }: { agente: 'laia' | 'cadin' }) {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/laia/chat', {
+      const res = await fetch('/api/alia/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

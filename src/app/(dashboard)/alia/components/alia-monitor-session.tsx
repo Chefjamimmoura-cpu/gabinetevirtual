@@ -32,12 +32,12 @@ export default function AliaMonitorSession({ sessionId, onUpdate }: { sessionId:
 
   const fetchSessionDetails = async () => {
     try {
-      const msgsRes = await fetch(`/api/laia/sessions/${sessionId}/messages`);
+      const msgsRes = await fetch(`/api/alia/sessions/${sessionId}/messages`);
       if (msgsRes.ok) {
         setMessages(await msgsRes.json());
       }
       
-      const sessionRes = await fetch('/api/laia/sessions');
+      const sessionRes = await fetch('/api/alia/sessions');
       if (sessionRes.ok) {
         const allSessions: SessionData[] = await sessionRes.json();
         const current = allSessions.find((s) => s.id === sessionId);
@@ -70,13 +70,13 @@ export default function AliaMonitorSession({ sessionId, onUpdate }: { sessionId:
   }, [messages]);
 
   const handleTakeover = async () => {
-    await fetch(`/api/laia/sessions/${sessionId}/takeover`, { method: 'POST' });
+    await fetch(`/api/alia/sessions/${sessionId}/takeover`, { method: 'POST' });
     onUpdate();
     fetchSessionDetails();
   };
 
   const handleRelease = async () => {
-    await fetch(`/api/laia/sessions/${sessionId}/release`, { 
+    await fetch(`/api/alia/sessions/${sessionId}/release`, {
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mensagem_retorno: "A assistente virtual retornou ao atendimento." }) 
@@ -91,7 +91,7 @@ export default function AliaMonitorSession({ sessionId, onUpdate }: { sessionId:
 
     setIsSending(true);
     try {
-      await fetch(`/api/laia/sessions/${sessionId}/reply`, {
+      await fetch(`/api/alia/sessions/${sessionId}/reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: input })

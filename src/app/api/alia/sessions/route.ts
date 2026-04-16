@@ -1,4 +1,4 @@
-// GET /api/laia/sessions
+// GET /api/alia/sessions
 // Lista sessões do gabinete com preview da última mensagem.
 // Query: ?status=ativa&canal=whatsapp&limit=50
 
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
 
   if (error) {
-    console.error('[laia/sessions GET]', error);
+    console.error('[alia/sessions GET]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

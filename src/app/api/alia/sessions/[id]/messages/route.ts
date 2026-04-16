@@ -1,4 +1,4 @@
-// GET /api/laia/sessions/[id]/messages
+// GET /api/alia/sessions/[id]/messages
 // Retorna todas as mensagens de uma sessão em ordem cronológica.
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -43,7 +43,7 @@ export async function GET(
     .order('created_at', { ascending: true });
 
   if (error) {
-    console.error('[laia/messages GET]', error);
+    console.error('[alia/messages GET]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

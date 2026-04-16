@@ -1,4 +1,4 @@
-// POST /api/laia/sessions/[id]/release
+// POST /api/alia/sessions/[id]/release
 // Devolve a conversa à IA. LAIA volta a responder automaticamente.
 // Body: { mensagem_retorno?: string }  — opcional, LAIA envia aviso ao usuário
 
@@ -79,7 +79,7 @@ export async function POST(
         });
       }
     } catch (err) {
-      console.error('[laia/release] erro ao enviar mensagem WhatsApp:', err);
+      console.error('[alia/release] erro ao enviar mensagem WhatsApp:', err);
       // não bloqueia o release
     }
   }

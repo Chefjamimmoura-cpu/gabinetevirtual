@@ -26,7 +26,7 @@ export default function AliaSettings() {
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
-    fetch('/api/laia/config')
+    fetch('/api/alia/config')
       .then(res => res.json())
       .then(data => {
         if (data && data.alia_config) {
@@ -47,7 +47,7 @@ export default function AliaSettings() {
     setIsSaving(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/laia/config', {
+      const res = await fetch('/api/alia/config', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

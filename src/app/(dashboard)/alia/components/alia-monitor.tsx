@@ -26,7 +26,7 @@ export default function AliaMonitor() {
 
   const fetchSessions = async () => {
     try {
-      const res = await fetch('/api/laia/sessions');
+      const res = await fetch('/api/alia/sessions');
       const data = await res.json();
       if (res.ok) setSessions(data);
     } catch (e) {
