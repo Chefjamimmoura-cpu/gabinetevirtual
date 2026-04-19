@@ -1,4 +1,4 @@
-// GET /api/laia/sessions
+// GET /api/alia/sessions
 // Lista sessões do gabinete com preview da última mensagem.
 // Query: ?status=ativa&canal=whatsapp&limit=50
 
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   const db = supabase();
 
   let query = db
-    .from('laia_sessions')
+    .from('alia_sessions')
     .select(`
       id,
       canal,
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
       profiles!laia_sessions_assumido_por_fkey (
         full_name
       ),
-      laia_messages (
+      alia_messages (
         role,
         content,
         created_at
@@ -58,15 +58,15 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
 
   if (error) {
-    console.error('[laia/sessions GET]', error);
+    console.error('[alia/sessions GET]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   // Enriquecer: última mensagem preview + contagem
   const sessoes = (data ?? []).map((s: any) => {
-    const msgs: any[] = s.laia_messages ?? [];
+    const msgs: any[] = s.alia_messages ?? [];
     const ultima = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-    const { laia_messages: _, profiles: prof, ...base } = s;
+    const { alia_messages: _, profiles: prof, ...base } = s;
 
     return {
       ...base,

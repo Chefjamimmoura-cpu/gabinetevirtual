@@ -1,4 +1,4 @@
-// POST /api/laia/chat
+// POST /api/alia/chat
 // Gateway slim — dashboard chat handler.
 // Logic lives in adapters/dashboard.ts (session, history, save) and brain.ts (pipeline).
 
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     // 9. Return formatted response
     return NextResponse.json(formatDashboardResponse(aliaResponse, sessionId, messageId));
   } catch (err) {
-    console.error('[laia/chat]', err);
+    console.error('[alia/chat]', err);
     return NextResponse.json({ error: 'Falha ao processar resposta da IA' }, { status: 500 });
   }
 }

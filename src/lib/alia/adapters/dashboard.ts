@@ -4,7 +4,7 @@
 // Converts incoming dashboard chat messages to ALIA gateway format
 // and formats responses back for the dashboard UI.
 //
-// Database: laia_sessions (session management), laia_messages (history)
+// Database: alia_sessions (session management), alia_messages (history)
 // =============================================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -122,7 +122,7 @@ export function formatDashboardResponse(
 // Returns: The session ID (either verified existing or newly created)
 //
 // Flow:
-//   1. If sessionId provided, verify it exists in laia_sessions
+//   1. If sessionId provided, verify it exists in alia_sessions
 //   2. If not found or not provided, create new session with canal='interno'
 //   3. Fallback to crypto.randomUUID() if DB fails
 
@@ -136,7 +136,7 @@ export async function getOrCreateDashboardSession(
     // If sessionId provided, verify it exists
     if (sessionId) {
       const { data: existingSession, error: queryError } = await db()
-        .from('laia_sessions')
+        .from('alia_sessions')
         .select('id')
         .eq('id', sessionId)
         .eq('gabinete_id', gabineteId)
@@ -151,7 +151,7 @@ export async function getOrCreateDashboardSession(
     // Create new session
     const newSessionId = randomUUID();
     const { error: insertError } = await db()
-      .from('laia_sessions')
+      .from('alia_sessions')
       .insert({
         id: newSessionId,
         gabinete_id: gabineteId,
@@ -174,7 +174,7 @@ export async function getOrCreateDashboardSession(
 }
 
 // ── saveMessage ────────────────────────────────────────────────────────────────
-// Saves a message to laia_messages table.
+// Saves a message to alia_messages table.
 //
 // Params:
 //   sessionId: The session ID for this message
@@ -194,7 +194,7 @@ export async function saveMessage(
     const messageId = randomUUID();
 
     const { error } = await db()
-      .from('laia_messages')
+      .from('alia_messages')
       .insert({
         id: messageId,
         session_id: sessionId,
@@ -217,7 +217,7 @@ export async function saveMessage(
 }
 
 // ── fetchHistory ────────────────────────────────────────────────────────────────
-// Fetches conversation history from laia_messages.
+// Fetches conversation history from alia_messages.
 //
 // Params:
 //   sessionId: The session ID to fetch history for
@@ -235,7 +235,7 @@ export async function fetchHistory(
 ): Promise<Array<{ role: string; content: string }>> {
   try {
     const { data: messages, error } = await db()
-      .from('laia_messages')
+      .from('alia_messages')
       .select('role, content')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true })

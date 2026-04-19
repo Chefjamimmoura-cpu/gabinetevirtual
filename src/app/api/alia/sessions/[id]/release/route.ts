@@ -1,6 +1,6 @@
-// POST /api/laia/sessions/[id]/release
-// Devolve a conversa à IA. LAIA volta a responder automaticamente.
-// Body: { mensagem_retorno?: string }  — opcional, LAIA envia aviso ao usuário
+// POST /api/alia/sessions/[id]/release
+// Devolve a conversa à IA. ALIA volta a responder automaticamente.
+// Body: { mensagem_retorno?: string }  — opcional, ALIA envia aviso ao usuário
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -28,7 +28,7 @@ export async function POST(
   const { mensagem_retorno } = await req.json().catch(() => ({}));
 
   const { data: sessao } = await db
-    .from('laia_sessions')
+    .from('alia_sessions')
     .select('id, status, canal, telefone')
     .eq('id', id)
     .eq('gabinete_id', GABINETE_ID)
@@ -41,7 +41,7 @@ export async function POST(
   const agora = new Date().toISOString();
 
   await db
-    .from('laia_sessions')
+    .from('alia_sessions')
     .update({
       status: 'ativa',
       assumido_por: null,
@@ -51,10 +51,10 @@ export async function POST(
     .eq('id', id);
 
   // Registrar evento de sistema
-  await db.from('laia_messages').insert({
+  await db.from('alia_messages').insert({
     session_id: id,
     role: 'system',
-    content: '🤖 A conversa foi devolvida à LAIA.',
+    content: '🤖 A conversa foi devolvida à ALIA.',
     metadata: { evento: 'release', timestamp: agora },
   });
 
@@ -79,7 +79,7 @@ export async function POST(
         });
       }
     } catch (err) {
-      console.error('[laia/release] erro ao enviar mensagem WhatsApp:', err);
+      console.error('[alia/release] erro ao enviar mensagem WhatsApp:', err);
       // não bloqueia o release
     }
   }

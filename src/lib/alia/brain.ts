@@ -13,6 +13,7 @@ import { routeDominios } from './router';
 import { searchHybrid, formatRagContext } from './rag';
 import { buildSystemPrompt } from './persona';
 import { fetchHistory } from './adapters/dashboard';
+import { withTelemetry } from './telemetry';
 
 import { cadinAgent }     from './agents/cadin.agent';
 import { indicacaoAgent } from './agents/indicacao.agent';
@@ -118,9 +119,21 @@ export async function processRequest(request: AliaRequest): Promise<AliaResponse
     currentDate: request.timestamp,
   });
 
-  // ── Step 7: Execute agent ─────────────────────────────────────────────────
+  // ── Step 7: Execute agent (wrapped with telemetry) ───────────────────────
 
-  const result = await agent.execute({
+  const triggeredBy: 'chat' | 'whatsapp' | 'cron' | 'test-isolated' =
+    request.channel === 'whatsapp' ? 'whatsapp'
+    : request.channel === 'cron'   ? 'cron'
+    : 'chat';
+
+  const wrapped = withTelemetry(agent, {
+    gabinete_id: GABINETE_ID,
+    session_id: request.session_id ?? null,
+    triggered_by: triggeredBy,
+    intent_tag: primaryIntent.agent ?? null,
+  });
+
+  const result = await wrapped.execute({
     action: primaryIntent.action,
     data: {
       text,

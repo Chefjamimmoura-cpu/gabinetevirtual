@@ -1,4 +1,4 @@
-// POST /api/laia/sessions/[id]/reply
+// POST /api/alia/sessions/[id]/reply
 // Assessor envia uma mensagem manual durante o modo de takeover humano.
 // Se canal=whatsapp, a mensagem é enviada via Evolution API.
 // A mensagem é salva como role='human_agent' no histórico.
@@ -39,7 +39,7 @@ export async function POST(
 
   // Verificar que a sessão pertence ao gabinete e está em modo humano
   const { data: sessao } = await db
-    .from('laia_sessions')
+    .from('alia_sessions')
     .select('id, status, canal, telefone')
     .eq('id', id)
     .eq('gabinete_id', GABINETE_ID)
@@ -60,7 +60,7 @@ export async function POST(
 
   // Salvar mensagem do assessor
   const { data: msg, error: msgErr } = await db
-    .from('laia_messages')
+    .from('alia_messages')
     .insert({
       session_id: id,
       role: 'human_agent',
@@ -71,11 +71,11 @@ export async function POST(
     .single();
 
   if (msgErr) {
-    console.error('[laia/reply]', msgErr);
+    console.error('[alia/reply]', msgErr);
     return NextResponse.json({ error: msgErr.message }, { status: 500 });
   }
 
-  await db.from('laia_sessions').update({ ultima_msg_em: agora }).eq('id', id);
+  await db.from('alia_sessions').update({ ultima_msg_em: agora }).eq('id', id);
 
   // Se canal WhatsApp, enviar via Evolution API
   let enviado_whatsapp = false;
@@ -100,7 +100,7 @@ export async function POST(
         enviado_whatsapp = resp.ok;
       }
     } catch (err) {
-      console.error('[laia/reply] erro Evolution API:', err);
+      console.error('[alia/reply] erro Evolution API:', err);
       // não bloqueia — mensagem já foi salva no histórico
     }
   }

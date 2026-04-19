@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Save, Loader2, Sparkles, BookOpen, Flag, Scale, UserCircle } from 'lucide-react';
-import styles from '../laia-dashboard.module.css';
+import styles from '../alia-dashboard.module.css';
 
 interface AliaConfig {
   political_alignment: string;
@@ -12,7 +12,7 @@ interface AliaConfig {
   custom_instructions: string;
 }
 
-export default function LaiaSettings() {
+export default function AliaSettings() {
   const [config, setConfig] = useState<AliaConfig>({
     political_alignment: '',
     philosophy: '',
@@ -26,7 +26,7 @@ export default function LaiaSettings() {
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
-    fetch('/api/laia/config')
+    fetch('/api/alia/config')
       .then(res => res.json())
       .then(data => {
         if (data && data.alia_config) {
@@ -47,7 +47,7 @@ export default function LaiaSettings() {
     setIsSaving(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/laia/config', {
+      const res = await fetch('/api/alia/config', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

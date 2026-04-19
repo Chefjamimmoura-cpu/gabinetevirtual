@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert, Bot, BotOff, Send, User, Loader2, MessageCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import styles from '../laia-dashboard.module.css';
+import styles from '../alia-dashboard.module.css';
 
 interface SessionData {
   id: string;
@@ -22,7 +22,7 @@ interface MessageData {
   created_at: string;
 }
 
-export default function LaiaMonitorSession({ sessionId, onUpdate }: { sessionId: string; onUpdate: () => void }) {
+export default function AliaMonitorSession({ sessionId, onUpdate }: { sessionId: string; onUpdate: () => void }) {
   const [session, setSession] = useState<SessionData | null>(null);
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [input, setInput] = useState('');
@@ -32,12 +32,12 @@ export default function LaiaMonitorSession({ sessionId, onUpdate }: { sessionId:
 
   const fetchSessionDetails = async () => {
     try {
-      const msgsRes = await fetch(`/api/laia/sessions/${sessionId}/messages`);
+      const msgsRes = await fetch(`/api/alia/sessions/${sessionId}/messages`);
       if (msgsRes.ok) {
         setMessages(await msgsRes.json());
       }
       
-      const sessionRes = await fetch('/api/laia/sessions');
+      const sessionRes = await fetch('/api/alia/sessions');
       if (sessionRes.ok) {
         const allSessions: SessionData[] = await sessionRes.json();
         const current = allSessions.find((s) => s.id === sessionId);
@@ -52,10 +52,10 @@ export default function LaiaMonitorSession({ sessionId, onUpdate }: { sessionId:
     fetchSessionDetails();
 
     const channel = supabase.channel(`session_${sessionId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'laia_messages', filter: `session_id=eq.${sessionId}` }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alia_messages', filter: `session_id=eq.${sessionId}` }, (payload) => {
         setMessages(prev => [...prev, payload.new as MessageData]);
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'laia_sessions', filter: `id=eq.${sessionId}` }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'alia_sessions', filter: `id=eq.${sessionId}` }, (payload) => {
         setSession(payload.new as SessionData);
       })
       .subscribe();
@@ -70,13 +70,13 @@ export default function LaiaMonitorSession({ sessionId, onUpdate }: { sessionId:
   }, [messages]);
 
   const handleTakeover = async () => {
-    await fetch(`/api/laia/sessions/${sessionId}/takeover`, { method: 'POST' });
+    await fetch(`/api/alia/sessions/${sessionId}/takeover`, { method: 'POST' });
     onUpdate();
     fetchSessionDetails();
   };
 
   const handleRelease = async () => {
-    await fetch(`/api/laia/sessions/${sessionId}/release`, { 
+    await fetch(`/api/alia/sessions/${sessionId}/release`, {
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mensagem_retorno: "A assistente virtual retornou ao atendimento." }) 
@@ -91,7 +91,7 @@ export default function LaiaMonitorSession({ sessionId, onUpdate }: { sessionId:
 
     setIsSending(true);
     try {
-      await fetch(`/api/laia/sessions/${sessionId}/reply`, {
+      await fetch(`/api/alia/sessions/${sessionId}/reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: input })

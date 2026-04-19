@@ -14,7 +14,7 @@ function getPageContext(pathname: string): string {
   if (pathname.includes('/indicacoes')) return 'Indicações — Demandas e Serviços para a Comunidade';
   if (pathname.includes('/pls')) return 'PLs — Proposições Legislativas';
   if (pathname.includes('/comissoes')) return 'Comissões — Acompanhamento de Comissões da Câmara';
-  if (pathname.includes('/laia')) return 'LAIA — Central de Atendimento';
+  if (pathname.includes('/alia')) return 'ALIA — Central de Atendimento';
   if (pathname.includes('/configuracoes')) return 'Configurações do Sistema';
   return 'Dashboard Principal';
 }
@@ -145,7 +145,7 @@ export default function GlobalAliaWidget() {
     setIsTyping(true);
 
     try {
-      const res = await fetch('/api/laia/chat', {
+      const res = await fetch('/api/alia/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -194,7 +194,7 @@ export default function GlobalAliaWidget() {
     setMessages(prev => [...prev, userMsg]);
     setIsTyping(true);
 
-    fetch('/api/laia/chat', {
+    fetch('/api/alia/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

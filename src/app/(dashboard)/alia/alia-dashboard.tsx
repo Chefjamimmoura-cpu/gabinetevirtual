@@ -1,15 +1,24 @@
 'use client';
 
+/**
+ * @deprecated Substituído pelo shell layout em `/alia/layout.tsx` + sub-páginas
+ * (atendimento, orquestracao, conhecimento, ajustes) na Fase 1a.
+ *
+ * Mantido por enquanto porque `src/app/(dashboard)/indicacoes/indicacoes-dashboard.tsx`
+ * ainda renderiza <AliaDashboard /> embedado na aba ALIA. Migração desse caller
+ * fica como follow-up (provavelmente substituir por <Link href="/alia">).
+ */
+
 import React, { useState } from 'react';
 import { Zap, MessageSquare, Activity, BookUser, Settings } from 'lucide-react';
-import styles from './laia-dashboard.module.css';
-import LaiaChat from './components/laia-chat';
-import LaiaMonitor from './components/laia-monitor';
-import LaiaSettings from './components/laia-settings';
+import styles from './alia-dashboard.module.css';
+import AliaChat from './components/alia-chat';
+import AliaMonitor from './components/alia-monitor';
+import AliaSettings from './components/alia-settings';
 
 type Aba = 'chat' | 'monitor' | 'cadin' | 'settings';
 
-export default function LaiaDashboard() {
+export default function AliaDashboard() {
   const [abaAtiva, setAbaAtiva] = useState<Aba>('monitor');
 
   return (
@@ -52,10 +61,10 @@ export default function LaiaDashboard() {
       </div>
 
       <div className={styles.tabContent}>
-        {abaAtiva === 'monitor' && <LaiaMonitor />}
-        {abaAtiva === 'chat' && <LaiaChat agente="laia" />}
-        {abaAtiva === 'cadin' && <LaiaChat agente="cadin" />}
-        {abaAtiva === 'settings' && <LaiaSettings />}
+        {abaAtiva === 'monitor' && <AliaMonitor />}
+        {abaAtiva === 'chat' && <AliaChat agente="alia" />}
+        {abaAtiva === 'cadin' && <AliaChat agente="cadin" />}
+        {abaAtiva === 'settings' && <AliaSettings />}
       </div>
     </div>
   );

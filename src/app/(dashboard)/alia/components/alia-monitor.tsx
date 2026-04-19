@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import LaiaMonitorSession from './laia-monitor-session';
+import AliaMonitorSession from './alia-monitor-session';
 import { Smartphone, Monitor as MonitorIcon, Search, MessageSquare } from 'lucide-react';
-import styles from '../laia-dashboard.module.css';
+import styles from '../alia-dashboard.module.css';
 
 interface Session {
   id: string;
   canal: 'whatsapp' | 'interno';
-  agente: 'laia' | 'cadin';
+  agente: 'alia' | 'cadin';
   telefone: string | null;
   contato_nome: string | null;
   status: 'ativa' | 'humano' | 'encerrada';
@@ -18,7 +18,7 @@ interface Session {
   ultima_msg_preview: string;
 }
 
-export default function LaiaMonitor() {
+export default function AliaMonitor() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,7 +26,7 @@ export default function LaiaMonitor() {
 
   const fetchSessions = async () => {
     try {
-      const res = await fetch('/api/laia/sessions');
+      const res = await fetch('/api/alia/sessions');
       const data = await res.json();
       if (res.ok) setSessions(data);
     } catch (e) {
@@ -38,10 +38,10 @@ export default function LaiaMonitor() {
     fetchSessions();
 
     const channel = supabase.channel('laia_monitor_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'laia_sessions' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'alia_sessions' }, () => {
         fetchSessions();
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'laia_messages' }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alia_messages' }, () => {
         fetchSessions();
       })
       .subscribe();
@@ -134,7 +134,7 @@ export default function LaiaMonitor() {
       {/* Main Content */}
       <div className={styles.monitorMainEmpty}>
         {selectedSessionId ? (
-          <LaiaMonitorSession sessionId={selectedSessionId} onUpdate={fetchSessions} />
+          <AliaMonitorSession sessionId={selectedSessionId} onUpdate={fetchSessions} />
         ) : (
           <div className={styles.monitorEmptyContent}>
             <div className={styles.monitorEmptyInner}>

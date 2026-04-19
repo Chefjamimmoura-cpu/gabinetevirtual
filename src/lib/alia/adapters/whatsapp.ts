@@ -236,7 +236,7 @@ export async function sendWhatsAppMessage(phone: string, text: string): Promise<
 // ── Session management ────────────────────────────────────────────────────────
 
 /**
- * Finds an existing active or humano laia_session for the given phone number,
+ * Finds an existing active or humano alia_session for the given phone number,
  * or creates a new one. Returns the session id and its current status.
  */
 export async function getOrCreateSession(
@@ -248,7 +248,7 @@ export async function getOrCreateSession(
   const cleanPhone = phone.replace('@s.whatsapp.net', '');
 
   const { data: existing } = await supabase
-    .from('laia_sessions')
+    .from('alia_sessions')
     .select('id, status')
     .eq('gabinete_id', gabineteId)
     .eq('canal', 'whatsapp')
@@ -260,7 +260,7 @@ export async function getOrCreateSession(
 
   if (existing) {
     await supabase
-      .from('laia_sessions')
+      .from('alia_sessions')
       .update({ contato_nome: contactName, ultima_msg_em: new Date().toISOString() })
       .eq('id', existing.id);
 
@@ -268,11 +268,11 @@ export async function getOrCreateSession(
   }
 
   const { data: created } = await supabase
-    .from('laia_sessions')
+    .from('alia_sessions')
     .insert({
       gabinete_id: gabineteId,
       canal: 'whatsapp',
-      agente: 'laia',
+      agente: 'alia',
       telefone: cleanPhone,
       contato_nome: contactName,
       status: 'ativa',
@@ -286,7 +286,7 @@ export async function getOrCreateSession(
 // ── Message persistence ───────────────────────────────────────────────────────
 
 /**
- * Inserts a message row into laia_messages and bumps the session timestamp.
+ * Inserts a message row into alia_messages and bumps the session timestamp.
  */
 export async function saveMessage(
   sessionId: string,
@@ -298,7 +298,7 @@ export async function saveMessage(
 
   const supabase = getSupabase();
 
-  await supabase.from('laia_messages').insert({
+  await supabase.from('alia_messages').insert({
     session_id: sessionId,
     role,
     content,
@@ -306,7 +306,7 @@ export async function saveMessage(
   });
 
   await supabase
-    .from('laia_sessions')
+    .from('alia_sessions')
     .update({ ultima_msg_em: new Date().toISOString() })
     .eq('id', sessionId);
 }

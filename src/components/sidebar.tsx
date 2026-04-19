@@ -33,7 +33,7 @@ const MODULES = [
   { id: 'oficios', label: 'Ofícios', icon: Mail, href: '/oficios' },
   { id: 'cadin', label: 'CADIN', icon: BookUser, href: '/cadin' },
   { id: 'sessoes', label: 'Transcrições', icon: AudioLines, href: '/sessoes' },
-  { id: 'alia', label: 'Assistente ALIA', icon: Zap, href: '/laia' },
+  { id: 'alia', label: 'Assistente ALIA', icon: Zap, href: '/alia' },
   { id: 'configuracoes', label: 'Configurações', icon: Settings, href: '/configuracoes' },
 ] as const;
 
