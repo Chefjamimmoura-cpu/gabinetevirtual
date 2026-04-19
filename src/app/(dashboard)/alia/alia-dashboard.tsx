@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * @deprecated Substituído pelo shell layout em `/alia/layout.tsx` + sub-páginas
+ * (atendimento, orquestracao, conhecimento, ajustes) na Fase 1a.
+ *
+ * Mantido por enquanto porque `src/app/(dashboard)/indicacoes/indicacoes-dashboard.tsx`
+ * ainda renderiza <AliaDashboard /> embedado na aba ALIA. Migração desse caller
+ * fica como follow-up (provavelmente substituir por <Link href="/alia">).
+ */
+
 import React, { useState } from 'react';
 import { Zap, MessageSquare, Activity, BookUser, Settings } from 'lucide-react';
 import styles from './alia-dashboard.module.css';
