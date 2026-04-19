@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AliaMonitor from '../components/alia-monitor';
 import AliaChat from '../components/alia-chat';
@@ -12,7 +13,7 @@ const SUBABAS = [
 
 type SubAbaId = typeof SUBABAS[number]['id'];
 
-export default function AtendimentoPage() {
+function AtendimentoConteudo() {
   const router = useRouter();
   const params = useSearchParams();
   const aba = (params.get('tab') as SubAbaId | null) ?? 'monitor';
@@ -38,5 +39,13 @@ export default function AtendimentoPage() {
       {aba === 'monitor' && <AliaMonitor />}
       {aba === 'chat' && <AliaChat agente="alia" />}
     </div>
+  );
+}
+
+export default function AtendimentoPage() {
+  return (
+    <Suspense fallback={<div className={styles.subTabs} />}>
+      <AtendimentoConteudo />
+    </Suspense>
   );
 }
