@@ -1,9 +1,9 @@
 'use client';
 import React, { useState } from 'react';
-import { ArrowLeft, Check, Loader2, ExternalLink, Building2 } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, ExternalLink, Building2, ListChecks } from 'lucide-react';
 import { DocumentPreview } from './DocumentPreview';
 import styles from './comissao-wizard.module.css';
-import { MateriaFila, ParecerResult } from './types';
+import { MateriaFila, ParecerResult, ComissaoMembro } from './types';
 
 interface Step3PareceresProps {
   materias: MateriaFila[];
@@ -13,11 +13,15 @@ interface Step3PareceresProps {
   onExportOdt: (materiaId: number) => void;
   onExportDocx: (materiaId: number) => void;
   onVoltar: () => void;
+  onVoltarInicio: () => void;
   onConcluir: () => void;
+  commissionNome?: string;
+  membros?: ComissaoMembro[];
 }
 
 export function Step3Pareceres({
-  materias, parecerResults, isGerando, onGerarParecer, onExportOdt, onExportDocx, onVoltar, onConcluir
+  materias, parecerResults, isGerando, onGerarParecer, onExportOdt, onExportDocx, onVoltar, onVoltarInicio, onConcluir,
+  commissionNome, membros = []
 }: Step3PareceresProps) {
   const [activeMateriaId, setActiveMateriaId] = useState<number>(materias[0]?.id ?? 0);
   const [votos, setVotos] = useState<Map<number, string>>(() => new Map(materias.map(m => [m.id, 'FAVORÁVEL'])));
@@ -137,6 +141,7 @@ export function Step3Pareceres({
                     <span style={{ fontWeight: 600, color: '#15803d', fontSize: '0.82rem' }}>Parecer gerado! Baixe ou avance para a próxima matéria.</span>
                   </div>
                   <DocumentPreview content={activeResult.texto} tipo="parecer"
+                    commissionNome={commissionNome} membros={membros}
                     onExportOdt={() => onExportOdt(activeMateriaId)} onExportDocx={() => onExportDocx(activeMateriaId)} />
                 </>
               )}
@@ -149,7 +154,10 @@ export function Step3Pareceres({
             </div>
 
             <div className={styles.parecerFooter}>
-              <button className={styles.btnSecondary} onClick={onVoltar}><ArrowLeft size={15} /> Voltar para ATA</button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className={styles.btnSecondary} onClick={onVoltarInicio}><ListChecks size={15} /> Seleção de matérias</button>
+                <button className={styles.btnSecondary} onClick={onVoltar}><ArrowLeft size={15} /> Voltar para ATA</button>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: '0.78rem', color: '#6b7280' }}>{doneCount} de {totalCount} pareceres gerados</span>
                 {allDone && <button className={styles.btnGreen} onClick={onConcluir}><Check size={16} /> Concluir Reunião</button>}

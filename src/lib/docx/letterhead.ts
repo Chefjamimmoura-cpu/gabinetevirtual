@@ -34,6 +34,8 @@ export interface LetterheadOptions {
   gabineteLabel?: string;
   /** Se true, insere watermark (marca d'água) no header via paragraphs extras */
   watermarkRun?: ImageRun;
+  /** Se true, rodapé genérico institucional (sem nome de vereador/gabinete) */
+  genericFooter?: boolean;
 }
 
 // ── Brasão ─────────────────────────────────────────────────────────────
@@ -174,62 +176,61 @@ export function buildCmbvHeader(opts?: LetterheadOptions): Paragraph[] {
  */
 export function buildCmbvFooter(opts?: LetterheadOptions): Footer {
   const vereador = opts?.vereadorNome ?? 'Carol Dantas';
+  const generic = opts?.genericFooter ?? false;
 
-  return new Footer({
-    children: [
-      // Linha 1: Câmara Municipal de Boa Vista (bold, 10pt)
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'Câmara Municipal de Boa Vista',
-            bold: true,
-            color: FOOTER_COLOR,
-            size: FOOTER_SIZE,
-            font: FONT,
-          }),
-        ],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 0 },
-      }),
-      // Linha 2: Palácio + Gabinete
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: `Palácio João Evangelista Pereira de Melo - Gabinete da vereadora ${vereador}`,
-            color: FOOTER_COLOR,
-            size: FOOTER_SIZE_SMALL,
-            font: FONT,
-          }),
-        ],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 0 },
-      }),
-      // Linha 3: Endereço + Tel
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'Avenida Capitão Ene Garcêz, 1264 - São Francisco - CEP: 69 301 160 - Tel: 95 3623-0974',
-            color: FOOTER_COLOR,
-            size: FOOTER_SIZE_SMALL,
-            font: FONT,
-          }),
-        ],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 0 },
-      }),
-      // Linha 4: Email + Cidade
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'Email: presidência.cmbv@gmail.com - Boa Vista - Roraima',
-            color: FOOTER_COLOR,
-            size: FOOTER_SIZE_SMALL,
-            font: FONT,
-          }),
-        ],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 0 },
-      }),
-    ],
-  });
+  const footerChildren: Paragraph[] = [
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: 'Câmara Municipal de Boa Vista',
+          bold: true,
+          color: FOOTER_COLOR,
+          size: FOOTER_SIZE,
+          font: FONT,
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 0 },
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: generic
+            ? 'Palácio João Evangelista Pereira de Melo'
+            : `Palácio João Evangelista Pereira de Melo - Gabinete da vereadora ${vereador}`,
+          color: FOOTER_COLOR,
+          size: FOOTER_SIZE_SMALL,
+          font: FONT,
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 0 },
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: 'Avenida Capitão Ene Garcêz, 1264 - São Francisco - CEP: 69 301 160',
+          color: FOOTER_COLOR,
+          size: FOOTER_SIZE_SMALL,
+          font: FONT,
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 0 },
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: 'Boa Vista - Roraima',
+          color: FOOTER_COLOR,
+          size: FOOTER_SIZE_SMALL,
+          font: FONT,
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 0 },
+    }),
+  ];
+
+  return new Footer({ children: footerChildren });
 }

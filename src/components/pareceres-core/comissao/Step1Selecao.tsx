@@ -2,11 +2,12 @@
 import React, { useMemo, useState } from 'react';
 import { Search, Info, ArrowRight, Loader2 } from 'lucide-react';
 import styles from './comissao-wizard.module.css';
-import { MateriaFila } from './types';
+import { MateriaFila, ParecerResult } from './types';
 
 interface Step1SelecaoProps {
   materias: MateriaFila[];
   selectedIds: Set<number>;
+  parecerResults?: Map<number, ParecerResult>;
   onToggle: (id: number) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
@@ -46,7 +47,7 @@ function isOldMateria(dateStr: string | null | undefined): boolean {
 }
 
 export function Step1Selecao({
-  materias, selectedIds, onToggle, onSelectAll, onDeselectAll, onAvancar, onIrDiretoPareceres, loading
+  materias, selectedIds, parecerResults, onToggle, onSelectAll, onDeselectAll, onAvancar, onIrDiretoPareceres, loading
 }: Step1SelecaoProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('data_desc');
@@ -101,12 +102,6 @@ export function Step1Selecao({
           <input type="text" placeholder="Buscar por número, tipo ou texto... (ex: PLL 32)"
             className={styles.searchInput} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
         </div>
-        <select className={styles.sortSelect} value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}>
-          <option value="data_desc">Mais recentes primeiro</option>
-          <option value="data_asc">Mais antigas primeiro</option>
-          <option value="numero_desc">Número (decrescente)</option>
-          <option value="numero_asc">Número (crescente)</option>
-        </select>
       </div>
 
       <div className={styles.filterChips}>
@@ -119,6 +114,12 @@ export function Step1Selecao({
             {tipo} ({count})
           </button>
         ))}
+        <select className={styles.sortSelect} value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}>
+          <option value="data_desc">Mais recentes primeiro</option>
+          <option value="data_asc">Mais antigas primeiro</option>
+          <option value="numero_desc">Número (decrescente)</option>
+          <option value="numero_asc">Número (crescente)</option>
+        </select>
       </div>
 
       <div className={styles.instructionBanner}>
@@ -150,7 +151,14 @@ export function Step1Selecao({
                   <span className={styles.materiaDate} title={full}>{relative}</span>
                 </div>
                 <p className={styles.materiaEmenta}>{m.ementa || '(sem ementa)'}</p>
-                <span className={styles.materiaAutor}>{m.autores ? `Autor: ${m.autores}` : ''}</span>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span className={styles.materiaAutor}>{m.autores ? `Autor: ${m.autores}` : ''}</span>
+                  {parecerResults?.has(m.id) && (
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '1px 6px', borderRadius: 4 }}>
+                      Parecer gerado
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           );

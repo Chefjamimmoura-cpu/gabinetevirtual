@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
     commission_nome?: string;
     commission_sigla?: string;
     gabinete_nome?: string;
+    relator_nome?: string;
     titulo?: string;
     membros?: ComissaoMembro[];
   };
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Body JSON inválido' }, { status: 400 });
   }
 
-  const { parecer, total_materias = 0, data_sessao, tipo, commission_nome, commission_sigla, gabinete_nome, titulo, membros } = body;
+  const { parecer, total_materias = 0, data_sessao, tipo, commission_nome, commission_sigla, gabinete_nome, relator_nome, titulo, membros } = body;
 
   if (!parecer || typeof parecer !== 'string') {
     return NextResponse.json({ error: 'Campo "parecer" é obrigatório' }, { status: 400 });
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
         commissionNome: commission_nome,
         commissionSigla: commission_sigla,
         gabineteNome: gabinete_nome,
+        relatorNome: relator_nome || gabinete_nome,
       });
       const safe = (titulo || `Relatoria_${commission_sigla}`).replace(/[^a-zA-Z0-9_-]/g, '_');
       const filename = `${safe}.docx`;

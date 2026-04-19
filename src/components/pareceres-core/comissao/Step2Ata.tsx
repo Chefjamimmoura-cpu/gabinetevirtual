@@ -134,7 +134,7 @@ export function Step2Ata({
                 <p className={styles.successSub}>{materias.length} matéria{materias.length !== 1 ? 's' : ''} incluída{materias.length !== 1 ? 's' : ''}. Baixe o documento ou avance para os Pareceres.</p>
               </div>
             </div>
-            <DocumentPreview content={ataResult} tipo="ata" onExportOdt={onExportOdt} onExportDocx={onExportDocx} />
+            <DocumentPreview content={ataResult} tipo="ata" commissionNome={comissao.nome} membros={membros} onExportOdt={onExportOdt} onExportDocx={onExportDocx} />
             <button className={styles.btnPrimary} onClick={onAvancar} style={{ alignSelf: 'stretch', justifyContent: 'center' }}>
               Avançar para Pareceres <ArrowRight size={16} />
             </button>

@@ -401,10 +401,11 @@ export async function generateRelatorDocxBuffer(
     commissionNome: string;
     commissionSigla: string;
     gabineteNome?: string;
+    relatorNome?: string;
   }
 ): Promise<Buffer> {
-  const { commissionNome, commissionSigla, gabineteNome = 'Parlamentar' } = opts;
-  const gabineteLabel = `GABINETE VEREADORA ${gabineteNome.toUpperCase()}`;
+  const { commissionNome, commissionSigla, gabineteNome = 'Parlamentar', relatorNome } = opts;
+  const gabineteLabel = commissionNome.toUpperCase();
   const SIZE = 22; // 11pt (22 half-points)
   const INDENT_FIRST = 1418; // 2.5cm recuo de 1ª linha (como no modelo)
   const LINE_SPACING = 360; // 1.5 entrelinhas
@@ -413,7 +414,7 @@ export async function generateRelatorDocxBuffer(
 
   // Cabeçalho e rodapé oficiais (papel timbrado CMBV)
   const headerChildren = buildCmbvHeader({ gabineteLabel });
-  const footerParams = buildCmbvFooter();
+  const footerParams = buildCmbvFooter({ genericFooter: true });
 
   // Título do documento — centralizado, bold, sublinhado
   children.push(
@@ -623,6 +624,34 @@ export async function generateRelatorDocxBuffer(
     }
   }
 
+  // Assinatura do Relator
+  if (relatorNome) {
+    const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    children.push(
+      new Paragraph({ spacing: { before: 800 } }),
+      new Paragraph({
+        children: [new TextRun({ text: `Boa Vista – RR, ${hoje}.`, size: SIZE, font: 'Times New Roman' })],
+        alignment: AlignmentType.CENTER, spacing: { after: 600 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: '__________________________________________', size: SIZE, font: 'Times New Roman', color: '999999' })],
+        alignment: AlignmentType.CENTER, spacing: { after: 0 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: `Vereador(a) ${relatorNome}`, bold: true, size: SIZE, font: 'Times New Roman' })],
+        alignment: AlignmentType.CENTER, spacing: { after: 0 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: `Relator(a) — ${commissionNome}`, size: SIZE - 2, font: 'Times New Roman', italics: true })],
+        alignment: AlignmentType.CENTER, spacing: { after: 0 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: 'Câmara Municipal de Boa Vista', size: SIZE - 2, font: 'Times New Roman', italics: true })],
+        alignment: AlignmentType.CENTER, spacing: { after: 0 },
+      }),
+    );
+  }
+
   const doc = new Document({
     creator: 'Sistema CMBV',
     title: `Parecer de Relatoria — ${commissionSigla}`,
@@ -685,14 +714,14 @@ export async function generateParecerComissaoDocx(
   opts: { commissionNome: string; commissionSigla: string; gabineteNome?: string; membros?: ComissaoMembro[] }
 ): Promise<Buffer> {
   const { commissionNome, commissionSigla, gabineteNome = 'Parlamentar', membros = [] } = opts;
-  const gabineteLabel = `${opts.commissionNome.toUpperCase()} — ${opts.commissionSigla}`;
+  const gabineteLabel = opts.commissionNome.toUpperCase();
   const SIZE = 22; // 11pt
 
   const children: (Paragraph | Table)[] = [];
 
   // Cabeçalho e rodapé oficiais (papel timbrado CMBV)
   const headerChildren = buildCmbvHeader({ gabineteLabel });
-  const footerParams = buildCmbvFooter();
+  const footerParams = buildCmbvFooter({ genericFooter: true });
 
   // Título
   children.push(
@@ -776,14 +805,14 @@ export async function generateAtaDocx(
   opts: { commissionNome: string; commissionSigla: string; gabineteNome?: string; membros?: ComissaoMembro[]; dataStr?: string }
 ): Promise<Buffer> {
   const { commissionNome, commissionSigla, gabineteNome = 'Parlamentar', membros = [], dataStr } = opts;
-  const gabineteLabel = `${opts.commissionNome.toUpperCase()} — ${opts.commissionSigla}`;
+  const gabineteLabel = opts.commissionNome.toUpperCase();
   const SIZE = 24; // 12pt — ATA em maiúsculas segue o modelo original
 
   const children: (Paragraph | Table)[] = [];
 
   // Cabeçalho e rodapé oficiais (papel timbrado CMBV)
   const headerChildren = buildCmbvHeader({ gabineteLabel });
-  const footerParams = buildCmbvFooter();
+  const footerParams = buildCmbvFooter({ genericFooter: true });
 
   // Título
   children.push(

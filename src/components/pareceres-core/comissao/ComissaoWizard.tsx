@@ -112,15 +112,38 @@ export function ComissaoWizard({
     } catch { /* silent */ } finally { setIsGerando(false); }
   }, [comissaoSigla]);
 
-  const handleExport = useCallback(async (tipo: 'ata' | 'comissao', formato?: 'odt') => {
-    const content = tipo === 'ata' ? ataResult : lastComissaoResult;
-    if (!content || !comissao) return;
+  // Exporta DOCX/ODT para uma matéria específica (parecer de comissão) ou ATA
+  const handleExport = useCallback(async (tipo: 'ata' | 'comissao', formato?: 'odt', materiaId?: number) => {
+    if (!comissao) return;
+
+    // Para parecer de comissão, usa o resultado da matéria específica
+    let content: string | null;
+    let materia: MateriaFila | undefined;
+    if (tipo === 'comissao' && materiaId) {
+      const result = parecerResults.get(materiaId);
+      content = result?.texto ?? null;
+      materia = comissaoFila.find(m => m.id === materiaId);
+    } else if (tipo === 'ata') {
+      content = ataResult;
+    } else {
+      content = lastComissaoResult;
+    }
+    if (!content) return;
+
+    // Nome do arquivo com número do PL
+    const materiaRef = materia ? `${materia.tipo_sigla}_${materia.numero}_${materia.ano}` : '';
+    const defaultName = tipo === 'ata'
+      ? `ATA_${comissao.sigla}`
+      : materiaRef ? `Parecer_${comissao.sigla}_${materiaRef}` : `Parecer_${comissao.sigla}`;
+
     try {
       const body: Record<string, unknown> = {
         parecer: content,
-        tipo: tipo === 'ata' ? 'ata' : 'parecer_comissao',
+        tipo: tipo === 'ata' ? 'ata' : 'comissao',
         commission_nome: comissao.nome,
         commission_sigla: comissao.sigla,
+        membros,
+        titulo: defaultName,
       };
       if (formato === 'odt') body.formato = 'odt';
       const res = await fetch('/api/pareceres/export-docx', {
@@ -134,12 +157,12 @@ export function ComissaoWizard({
         const a = document.createElement('a');
         a.href = url;
         const ext = formato === 'odt' ? 'odt' : 'docx';
-        a.download = tipo === 'ata' ? `ATA_${comissao.sigla}.${ext}` : `Parecer_${comissao.sigla}.${ext}`;
+        a.download = `${defaultName}.${ext}`;
         a.click();
         URL.revokeObjectURL(url);
       }
     } catch { /* silent */ }
-  }, [ataResult, lastComissaoResult, comissao]);
+  }, [ataResult, lastComissaoResult, parecerResults, comissaoFila, comissao, membros]);
 
   const handleReabrirReuniao = useCallback((reuniao: Reuniao) => {
     setSelectedIds(new Set(reuniao.materia_ids));
@@ -187,6 +210,7 @@ export function ComissaoWizard({
         <Step1Selecao
           materias={comissaoFila}
           selectedIds={selectedIds}
+          parecerResults={parecerResults}
           onToggle={toggleMateria}
           onSelectAll={() => setSelectedIds(new Set(comissaoFila.map(m => m.id)))}
           onDeselectAll={() => setSelectedIds(new Set())}
@@ -216,10 +240,13 @@ export function ComissaoWizard({
           parecerResults={parecerResults}
           isGerando={isGerando}
           onGerarParecer={handleGerarParecer}
-          onExportOdt={() => handleExport('comissao', 'odt')}
-          onExportDocx={() => handleExport('comissao')}
+          onExportOdt={(id) => handleExport('comissao', 'odt', id)}
+          onExportDocx={(id) => handleExport('comissao', undefined, id)}
           onVoltar={() => setCurrentStep(2)}
+          onVoltarInicio={() => setCurrentStep(1)}
           onConcluir={handleConcluir}
+          commissionNome={comissao.nome}
+          membros={membros}
         />
       )}
     </div>
