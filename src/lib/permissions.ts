@@ -19,7 +19,41 @@ export const ALL_MODULES = [
 
 export type ModuleId = typeof ALL_MODULES[number]['id'];
 
-export type Permissions = Record<ModuleId, boolean>;
+/**
+ * Permissões granulares do Command Center ALIA (sub-permissões do módulo `alia`).
+ *
+ * Diferente de ALL_MODULES (controle de acesso a páginas/seções inteiras),
+ * estas chaves controlam ações finas dentro do Command Center — ex: editar
+ * prompt de agente, aprovar item da biblioteca, ver custo de tokens.
+ *
+ * Quando `hasFullAccess(role)` é true (superadmin/admin/vereador/assessor),
+ * todas estão liberadas implicitamente. Para visitantes ou roles customizados,
+ * cada flag deve estar `true` no JSONB `permissions` do profile.
+ */
+export const ALIA_PERMISSIONS = [
+  'alia.monitor.view',
+  'alia.chat.use',
+  'alia.agent.view',
+  'alia.agent.test',
+  'alia.agent.toggle',
+  'alia.agent.edit_prompt',
+  'alia.agent.reorder',
+  'alia.metrics.view',
+  'alia.metrics.view_cost',
+  'alia.biblioteca.upload',
+  'alia.biblioteca.approve',
+  'alia.biblioteca.delete',
+  'alia.rag.view',
+  'alia.personalidade.edit',
+  'alia.cross_gabinete',
+] as const;
+
+export type AliaPermission = typeof ALIA_PERMISSIONS[number];
+
+/** União de todas as chaves de permissão conhecidas (módulos + sub-permissões ALIA) */
+export type PermissionKey = ModuleId | AliaPermission;
+
+export type Permissions = Record<ModuleId, boolean> & Partial<Record<AliaPermission, boolean>>;
 
 /** Permissões padrão: tudo liberado */
 export function fullPermissions(): Permissions {
@@ -31,10 +65,10 @@ export function emptyPermissions(): Permissions {
   return Object.fromEntries(ALL_MODULES.map(m => [m.id, false])) as Permissions;
 }
 
-/** Verifica se o usuário tem acesso a um módulo */
-export function hasPermission(permissions: Partial<Permissions> | null | undefined, moduleId: string): boolean {
+/** Verifica se o usuário tem acesso a um módulo ou sub-permissão (ex: 'alia.agent.edit_prompt') */
+export function hasPermission(permissions: Partial<Permissions> | null | undefined, key: string): boolean {
   if (!permissions) return false;
-  return permissions[moduleId as ModuleId] === true;
+  return (permissions as Record<string, boolean | undefined>)[key] === true;
 }
 
 /** Labels amigáveis para cada role */
