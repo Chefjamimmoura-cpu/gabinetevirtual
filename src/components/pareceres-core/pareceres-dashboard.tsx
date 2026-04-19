@@ -158,6 +158,9 @@ export default function PareceresDashboard() {
   const [buscarIdMode, setBuscarIdMode] = useState(false);
   const [relatorBuscarId, setRelatorBuscarId] = useState('');
 
+  // Alertas de pareceres
+  const [parecerAlertas, setParecerAlertas] = useState<ParecerAlertas | null>(null);
+
   // Relatoria Redesign — filtros sidebar
   const [relatoriaSearchQuery, setRelatoriaSearchQuery] = useState('');
   const [relatoriaSortBy, setRelatoriaSortBy] = useState<'data_desc' | 'data_asc' | 'numero_desc' | 'numero_asc'>('data_desc');
@@ -252,6 +255,47 @@ export default function PareceresDashboard() {
     }
     loadConfig();
   }, []);
+
+  // Fetch alertas de pareceres
+  useEffect(() => {
+    async function fetchAlertas() {
+      try {
+        const res = await fetch('/api/pareceres/alertas');
+        if (res.ok) setParecerAlertas(await res.json());
+      } catch { /* alertas são secundários */ }
+    }
+    fetchAlertas();
+  }, []);
+
+  const refetchAlertas = async () => {
+    try {
+      const res = await fetch('/api/pareceres/alertas');
+      if (res.ok) setParecerAlertas(await res.json());
+    } catch { /* silencioso */ }
+  };
+
+  // Ler aba da URL (vindo do dashboard)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const aba = params.get('aba');
+    if (aba && ['vereador', 'relatoria', 'comissao', 'alia'].includes(aba)) {
+      setAbaPrincipal(aba as 'alia' | 'vereador' | 'relatoria' | 'comissao');
+    }
+    const sessaoParam = params.get('sessao');
+    if (sessaoParam) {
+      const sid = parseInt(sessaoParam, 10);
+      if (!isNaN(sid)) setSelectedSessao({ id: sid } as any);
+    }
+  }, []);
+
+  const handleAlertaNavegar = (aba: 'vereador' | 'relatoria' | 'comissao', sessaoId?: number) => {
+    setAbaPrincipal(aba);
+    if (aba === 'vereador' && sessaoId) {
+      const found = sessoes.find((s: { id: number }) => s.id === sessaoId);
+      if (found) setSelectedSessao(found);
+    }
+  };
 
   const loadRelatoriaFila = async (comissao: string) => {
     setRelatoriaFilaLoading(true);
@@ -547,6 +591,7 @@ export default function PareceresDashboard() {
         const data = await res.json();
         setParecerResult(data.parecer);
         setCachedTotalMaterias(selectedMaterias.length);
+        refetchAlertas();
         try {
           sessionStorage.setItem(PARECER_CACHE_KEY, JSON.stringify({
             parecer: data.parecer,
@@ -635,6 +680,7 @@ export default function PareceresDashboard() {
         const data = await res.json();
         setParecerResult(data.parecer);
         setCachedTotalMaterias(1);
+        refetchAlertas();
         try {
           sessionStorage.setItem(PARECER_CACHE_KEY, JSON.stringify({
             parecer: data.parecer,
@@ -685,6 +731,7 @@ export default function PareceresDashboard() {
         setRelatorResult(data.parecer_relator);
         setRelatorTitulo(`Relatoria ${data.commission} — ${data.materia_tipo}${modoLabel}`);
         if (data.rag_docs) setRelatorRagDocs(data.rag_docs);
+        refetchAlertas();
       } else {
         setRelatorResult(`**ERRO:** ${data.error || 'Falha ao gerar parecer de relator.'}`);
       }
@@ -709,6 +756,7 @@ export default function PareceresDashboard() {
           commission_nome: commissionNome,
           commission_sigla: relatorComissao,
           gabinete_nome: relatorNome,
+          relator_nome: relatorNome,
           titulo: relatorTitulo || `Relatoria_${relatorComissao}`,
         }),
       });
@@ -902,6 +950,18 @@ export default function PareceresDashboard() {
           {isSyncingComissoes ? 'Sincronizando...' : 'Sync Comissões'}
         </button>
       </header>
+
+      {/* Alertas de pareceres */}
+      {parecerAlertas && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+          <PareceresAlertCards
+            dados={parecerAlertas}
+            modo="modulo"
+            onNavegar={handleAlertaNavegar}
+            alertCardClass={styles.alertCard}
+          />
+        </div>
+      )}
 
       {/* Navegação por abas principais */}
       <div role="tablist" aria-label="Seções do Painel de Pareceres" style={{ display: 'flex', gap: '4px', borderBottom: '2px solid #e5e7eb', marginBottom: '20px' }}>
