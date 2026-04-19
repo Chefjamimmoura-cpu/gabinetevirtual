@@ -5,7 +5,7 @@ import { MapPin, Search, Plus, CheckCircle, Clock, FileWarning, Filter, Loader2,
 import styles from './indicacoes-dashboard.module.css';
 import { CampoKanban } from './components/campo-kanban';
 import { IndicacoesMapa } from './components/indicacoes-mapa';
-import LaiaDashboard from '../laia/laia-dashboard';
+import AliaDashboard from '../alia/alia-dashboard';
 import { IndicacoesModeracao } from './components/indicacoes-moderacao';
 import { FalaCidadaoInbox } from './components/fala-cidadao-inbox';
 
@@ -235,7 +235,7 @@ export default function IndicacoesDashboard() {
       {abaAtiva === 'mapa' && <IndicacoesMapa />}
 
       {/* Aba ALIA */}
-      {abaAtiva === 'alia' && <LaiaDashboard />}
+      {abaAtiva === 'alia' && <AliaDashboard />}
 
       {/* Aba SAPL — conteúdo original */}
       {abaAtiva === 'sapl' && <>

@@ -14,7 +14,7 @@ function getPageContext(pathname: string): string {
   if (pathname.includes('/indicacoes')) return 'Indicações — Demandas e Serviços para a Comunidade';
   if (pathname.includes('/pls')) return 'PLs — Proposições Legislativas';
   if (pathname.includes('/comissoes')) return 'Comissões — Acompanhamento de Comissões da Câmara';
-  if (pathname.includes('/laia')) return 'LAIA — Central de Atendimento';
+  if (pathname.includes('/alia')) return 'ALIA — Central de Atendimento';
   if (pathname.includes('/configuracoes')) return 'Configurações do Sistema';
   return 'Dashboard Principal';
 }

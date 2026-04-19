@@ -16,6 +16,10 @@ BEGIN;
 ALTER TABLE IF EXISTS laia_sessions RENAME TO alia_sessions;
 ALTER TABLE IF EXISTS laia_messages RENAME TO alia_messages;
 
+-- Normalizar discriminator de agente: sessões antigas tinham 'laia'; agora padrão é 'alia'.
+-- Idempotente — se executado duas vezes, segunda execução é no-op.
+UPDATE alia_sessions SET agente = 'alia' WHERE agente = 'laia';
+
 -- Views de compatibilidade: permitem que código antigo (não atualizado neste
 -- deploy) continue funcionando por 1 release. Remover em migration futura
 -- quando confirmarmos zero consumidores do nome antigo.

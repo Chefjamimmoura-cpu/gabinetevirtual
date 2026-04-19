@@ -1,6 +1,6 @@
 // POST /api/alia/sessions/[id]/release
-// Devolve a conversa à IA. LAIA volta a responder automaticamente.
-// Body: { mensagem_retorno?: string }  — opcional, LAIA envia aviso ao usuário
+// Devolve a conversa à IA. ALIA volta a responder automaticamente.
+// Body: { mensagem_retorno?: string }  — opcional, ALIA envia aviso ao usuário
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -54,7 +54,7 @@ export async function POST(
   await db.from('alia_messages').insert({
     session_id: id,
     role: 'system',
-    content: '🤖 A conversa foi devolvida à LAIA.',
+    content: '🤖 A conversa foi devolvida à ALIA.',
     metadata: { evento: 'release', timestamp: agora },
   });
 

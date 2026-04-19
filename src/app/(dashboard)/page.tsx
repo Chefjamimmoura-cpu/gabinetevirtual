@@ -297,7 +297,7 @@ const MODULES = [
   { label: 'Indicações',       icon: MapPin,        href: '/indicacoes', desc: 'Tracking de demandas cidadãs',             color: '#ef4444' },
   { label: 'Ofícios',          icon: Mail,          href: '/oficios',   desc: 'Geração rápida de ofícios',                 color: '#8b5cf6' },
   { label: 'CADIN',            icon: BookUser,      href: '/cadin',     desc: 'Cadastro de autoridades e contatos',        color: '#06b6d4' },
-  { label: 'ALIA',             icon: MessageSquare, href: '/laia',      desc: 'Central de atendimento via WhatsApp',       color: '#ec4899' },
+  { label: 'ALIA',             icon: MessageSquare, href: '/alia',      desc: 'Central de atendimento via WhatsApp',       color: '#ec4899' },
 ];
 
 // ─── Página ───────────────────────────────────────────────────────────────────
@@ -337,7 +337,7 @@ export default async function DashboardPage() {
               </Link>
             )}
             {laia.aguardando_humano > 0 && (
-              <Link href="/laia" className={styles.alertCard} style={{ '--alert-color': '#ec4899' } as React.CSSProperties}>
+              <Link href="/alia" className={styles.alertCard} style={{ '--alert-color': '#ec4899' } as React.CSSProperties}>
                 <AlertTriangle size={16} />
                 <span>
                   <strong>{laia.aguardando_humano}</strong>{' '}
