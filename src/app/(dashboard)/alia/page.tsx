@@ -1,5 +1,5 @@
-import AliaDashboard from './alia-dashboard';
+import { redirect } from 'next/navigation';
 
 export default function AliaPage() {
-  return <AliaDashboard />;
+  redirect('/alia/atendimento');
 }
