@@ -91,7 +91,7 @@ async function resolverMateriaIdNoSapl(tipo: string, numero: number, ano: number
   tipo_sigla: string;
 } | null> {
   try {
-    const url = `${SAPL_BASE}/api/materia/materia/?numero=${numero}&ano=${ano}&limit=10`;
+    const url = `${SAPL_BASE}/api/materia/materia/?numero=${numero}&ano=${ano}&page_size=10`;
     const res = await fetch(url, {
       headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(10000),

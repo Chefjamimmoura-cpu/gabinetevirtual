@@ -167,7 +167,7 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
       dataCorte1A.setDate(dataCorte1A.getDate() - 120);
       const dataCorte1AStr = dataCorte1A.toISOString().slice(0, 10);
 
-      const urlDestino = `${SAPL_BASE}/api/materia/tramitacao/?unidade_tramitacao_destino=${commission.sapl_unit_id}&data_tramitacao__gte=${dataCorte1AStr}&limit=200&ordering=-data_tramitacao&format=json`;
+      const urlDestino = `${SAPL_BASE}/api/materia/tramitacao/?unidade_tramitacao_destino=${commission.sapl_unit_id}&data_tramitacao__gte=${dataCorte1AStr}&page_size=200&ordering=-data_tramitacao&format=json`;
       const resDestino = await fetchWithRetry(urlDestino, { headers: SAPL_HEADERS });
       if (resDestino?.ok) {
         const json = await resDestino.json() as { results?: { materia?: number; __str__?: string; data_tramitacao?: string }[] };
@@ -199,7 +199,7 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
       dataCorte.setDate(dataCorte.getDate() - 90);
       const dataCorteStr = dataCorte.toISOString().slice(0, 10); // YYYY-MM-DD
 
-      const urlOrigem = `${SAPL_BASE}/api/materia/tramitacao/?unidade_tramitacao_local=${commission.sapl_unit_id}&data_tramitacao__gte=${dataCorteStr}&limit=200&ordering=-data_tramitacao&format=json`;
+      const urlOrigem = `${SAPL_BASE}/api/materia/tramitacao/?unidade_tramitacao_local=${commission.sapl_unit_id}&data_tramitacao__gte=${dataCorteStr}&page_size=200&ordering=-data_tramitacao&format=json`;
       const resOrigem = await fetchWithRetry(urlOrigem, { headers: SAPL_HEADERS });
       if (resOrigem?.ok) {
         const json = await resOrigem.json() as { results?: { materia?: number; __str__?: string; data_tramitacao?: string }[] };
@@ -238,7 +238,7 @@ async function fetchMateriasSaplLive(commission: CommissionDynamic): Promise<Liv
 
     // ── Estratégia 2 (fallback): busca por texto de tramitação ──
     if (materiaIds.size === 0) {
-      const url = `${SAPL_BASE}/api/materia/tramitacao/?limit=200&ordering=-data_tramitacao&format=json`;
+      const url = `${SAPL_BASE}/api/materia/tramitacao/?page_size=200&ordering=-data_tramitacao&format=json`;
       const res = await fetchWithRetry(url, { headers: SAPL_HEADERS });
       if (res?.ok) {
         const json = await res.json() as { results?: { materia?: number; __str__?: string; texto?: string; data_tramitacao?: string }[] };
