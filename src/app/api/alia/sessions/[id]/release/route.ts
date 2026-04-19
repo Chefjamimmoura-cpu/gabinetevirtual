@@ -28,7 +28,7 @@ export async function POST(
   const { mensagem_retorno } = await req.json().catch(() => ({}));
 
   const { data: sessao } = await db
-    .from('laia_sessions')
+    .from('alia_sessions')
     .select('id, status, canal, telefone')
     .eq('id', id)
     .eq('gabinete_id', GABINETE_ID)
@@ -41,7 +41,7 @@ export async function POST(
   const agora = new Date().toISOString();
 
   await db
-    .from('laia_sessions')
+    .from('alia_sessions')
     .update({
       status: 'ativa',
       assumido_por: null,
@@ -51,7 +51,7 @@ export async function POST(
     .eq('id', id);
 
   // Registrar evento de sistema
-  await db.from('laia_messages').insert({
+  await db.from('alia_messages').insert({
     session_id: id,
     role: 'system',
     content: '🤖 A conversa foi devolvida à LAIA.',

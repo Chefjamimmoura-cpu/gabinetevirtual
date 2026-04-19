@@ -53,7 +53,7 @@ export default function AliaDashboard() {
 
       <div className={styles.tabContent}>
         {abaAtiva === 'monitor' && <AliaMonitor />}
-        {abaAtiva === 'chat' && <AliaChat agente="laia" />}
+        {abaAtiva === 'chat' && <AliaChat agente="alia" />}
         {abaAtiva === 'cadin' && <AliaChat agente="cadin" />}
         {abaAtiva === 'settings' && <AliaSettings />}
       </div>

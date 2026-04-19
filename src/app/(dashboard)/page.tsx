@@ -79,12 +79,12 @@ async function fetchSummary(): Promise<DashboardSummary> {
       .eq('gabinete_id', GABINETE_ID)
       .eq('fonte', 'whatsapp'),
 
-    db.from('laia_sessions')
+    db.from('alia_sessions')
       .select('id', { count: 'exact', head: true })
       .eq('gabinete_id', GABINETE_ID)
       .eq('status', 'ativa'),
 
-    db.from('laia_sessions')
+    db.from('alia_sessions')
       .select('id', { count: 'exact', head: true })
       .eq('gabinete_id', GABINETE_ID)
       .eq('status', 'humano'),

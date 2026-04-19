@@ -145,7 +145,7 @@ export default function GlobalAliaWidget() {
     setIsTyping(true);
 
     try {
-      const res = await fetch('/api/laia/chat', {
+      const res = await fetch('/api/alia/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -194,7 +194,7 @@ export default function GlobalAliaWidget() {
     setMessages(prev => [...prev, userMsg]);
     setIsTyping(true);
 
-    fetch('/api/laia/chat', {
+    fetch('/api/alia/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

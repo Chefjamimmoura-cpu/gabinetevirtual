@@ -60,13 +60,13 @@ export async function GET(req: NextRequest) {
       .eq('fonte', 'whatsapp'),
 
     // Sessões ALIA ativas
-    db.from('laia_sessions')
+    db.from('alia_sessions')
       .select('id', { count: 'exact', head: true })
       .eq('gabinete_id', GABINETE_ID)
       .eq('status', 'ativa'),
 
     // Sessões ALIA aguardando atendimento humano
-    db.from('laia_sessions')
+    db.from('alia_sessions')
       .select('id', { count: 'exact', head: true })
       .eq('gabinete_id', GABINETE_ID)
       .eq('status', 'humano'),

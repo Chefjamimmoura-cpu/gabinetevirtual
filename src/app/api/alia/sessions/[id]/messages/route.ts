@@ -26,7 +26,7 @@ export async function GET(
 
   // Verificar que a sessão pertence ao gabinete
   const { data: sessao } = await db
-    .from('laia_sessions')
+    .from('alia_sessions')
     .select('id')
     .eq('id', id)
     .eq('gabinete_id', GABINETE_ID)
@@ -37,7 +37,7 @@ export async function GET(
   }
 
   const { data, error } = await db
-    .from('laia_messages')
+    .from('alia_messages')
     .select('id, role, content, metadata, created_at')
     .eq('session_id', id)
     .order('created_at', { ascending: true });

@@ -11,7 +11,7 @@ interface Message {
   created_at: string;
 }
 
-export default function AliaChat({ agente }: { agente: 'laia' | 'cadin' }) {
+export default function AliaChat({ agente }: { agente: 'alia' | 'cadin' }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -70,7 +70,7 @@ export default function AliaChat({ agente }: { agente: 'laia' | 'cadin' }) {
       const errorMsg: Message = {
         id: Date.now().toString() + 'error',
         role: 'system',
-        content: `Ocorreu um erro ao comunicar com a ${agente === 'laia' ? 'ALIA' : 'CADIN'}. Detalhes: ${errorMessage}`,
+        content: `Ocorreu um erro ao comunicar com a ${agente === 'alia' ? 'ALIA' : 'CADIN'}. Detalhes: ${errorMessage}`,
         created_at: new Date().toISOString()
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -79,18 +79,18 @@ export default function AliaChat({ agente }: { agente: 'laia' | 'cadin' }) {
     }
   };
 
-  const isLaia = agente === 'laia';
+  const isAlia = agente === 'alia';
 
   return (
     <div className={styles.glassCard}>
       {/* Header */}
       <div className={styles.chatHeader}>
-        {isLaia 
+        {isAlia 
           ? <Zap size={20} color="#488DC7" /> 
           : <BookUser size={20} color="#10b981" />
         }
         <h2 className={styles.chatHeaderTitle}>
-          {isLaia ? 'Assistente ALIA' : 'Agente CADIN (Contatos)'}
+          {isAlia ? 'Assistente ALIA' : 'Agente CADIN (Contatos)'}
         </h2>
       </div>
 
@@ -98,17 +98,17 @@ export default function AliaChat({ agente }: { agente: 'laia' | 'cadin' }) {
       <div className={styles.chatBody}>
         {messages.length === 0 && (
           <div className={styles.emptyState}>
-            <div className={isLaia ? styles.emptyStateIcon : styles.emptyStateIconGreen}>
-              {isLaia 
+            <div className={isAlia ? styles.emptyStateIcon : styles.emptyStateIconGreen}>
+              {isAlia 
                 ? <Zap size={32} color="#488DC7" /> 
                 : <BookUser size={32} color="#10b981" />
               }
             </div>
             <h3 className={styles.emptyStateTitle}>
-              {isLaia ? 'Converse com a ALIA' : 'Consulte o CADIN'}
+              {isAlia ? 'Converse com a ALIA' : 'Consulte o CADIN'}
             </h3>
             <p className={styles.emptyStateText}>
-              {isLaia 
+              {isAlia 
                 ? 'Faça perguntas sobre legislação, peça resumos de matérias ou auxílio com documentos do gabinete.'
                 : 'Consulte autoridades, secretarias municipais, contatos do governo e informações do cadastro.'
               }
@@ -139,7 +139,7 @@ export default function AliaChat({ agente }: { agente: 'laia' | 'cadin' }) {
               <span className={styles.typingDot} />
               <span className={styles.typingDot} />
             </div>
-            {isLaia ? 'ALIA' : 'CADIN'} está digitando...
+            {isAlia ? 'ALIA' : 'CADIN'} está digitando...
           </div>
         )}
 
@@ -153,7 +153,7 @@ export default function AliaChat({ agente }: { agente: 'laia' | 'cadin' }) {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={`Conversar com ${isLaia ? 'ALIA' : 'CADIN'}...`}
+            placeholder={`Conversar com ${isAlia ? 'ALIA' : 'CADIN'}...`}
             className={styles.chatInput}
           />
           <button

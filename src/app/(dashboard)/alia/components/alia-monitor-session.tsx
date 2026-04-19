@@ -52,10 +52,10 @@ export default function AliaMonitorSession({ sessionId, onUpdate }: { sessionId:
     fetchSessionDetails();
 
     const channel = supabase.channel(`session_${sessionId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'laia_messages', filter: `session_id=eq.${sessionId}` }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alia_messages', filter: `session_id=eq.${sessionId}` }, (payload) => {
         setMessages(prev => [...prev, payload.new as MessageData]);
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'laia_sessions', filter: `id=eq.${sessionId}` }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'alia_sessions', filter: `id=eq.${sessionId}` }, (payload) => {
         setSession(payload.new as SessionData);
       })
       .subscribe();

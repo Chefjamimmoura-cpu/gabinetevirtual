@@ -31,7 +31,7 @@ export async function POST(
 
   // Verificar que a sessão pertence ao gabinete e está ativa
   const { data: sessao } = await db
-    .from('laia_sessions')
+    .from('alia_sessions')
     .select('id, status, canal, telefone')
     .eq('id', id)
     .eq('gabinete_id', GABINETE_ID)
@@ -49,7 +49,7 @@ export async function POST(
 
   // Atualizar status para 'humano'
   const { error } = await db
-    .from('laia_sessions')
+    .from('alia_sessions')
     .update({ status: 'humano', assumido_em: agora })
     .eq('id', id);
 
@@ -58,14 +58,14 @@ export async function POST(
   }
 
   // Registrar evento de sistema na conversa
-  await db.from('laia_messages').insert({
+  await db.from('alia_messages').insert({
     session_id: id,
     role: 'system',
     content: '👤 Um assessor assumiu o controle da conversa.',
     metadata: { evento: 'takeover', timestamp: agora },
   });
 
-  await db.from('laia_sessions').update({ ultima_msg_em: agora }).eq('id', id);
+  await db.from('alia_sessions').update({ ultima_msg_em: agora }).eq('id', id);
 
   return NextResponse.json({
     ok: true,

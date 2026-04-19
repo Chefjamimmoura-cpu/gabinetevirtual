@@ -9,7 +9,7 @@ import styles from '../alia-dashboard.module.css';
 interface Session {
   id: string;
   canal: 'whatsapp' | 'interno';
-  agente: 'laia' | 'cadin';
+  agente: 'alia' | 'cadin';
   telefone: string | null;
   contato_nome: string | null;
   status: 'ativa' | 'humano' | 'encerrada';
@@ -38,10 +38,10 @@ export default function AliaMonitor() {
     fetchSessions();
 
     const channel = supabase.channel('laia_monitor_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'laia_sessions' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'alia_sessions' }, () => {
         fetchSessions();
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'laia_messages' }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alia_messages' }, () => {
         fetchSessions();
       })
       .subscribe();
