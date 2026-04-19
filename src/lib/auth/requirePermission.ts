@@ -21,6 +21,12 @@
  *       return NextResponse.json({ ok: true });
  *     },
  *   );
+ *
+ * NOTA F0: hasFullAccess() bypassa as permissões granulares alia.* para todos
+ * os papéis exceto 'visitante'. A matriz fina (admin pode editar prompt vs
+ * assessor não, etc.) será aplicada em fase futura quando a UI de gestão de
+ * permissões for construída. Para F0, este middleware bloqueia apenas
+ * visitantes e usuários sem o módulo 'alia' habilitado.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -90,10 +96,16 @@ export function requirePermission<TParams = unknown>(
       hasFullAccess(role) || hasPermission(permissions, permission);
 
     if (!allowed) {
+      console.warn('[requirePermission] permission_denied', {
+        user_id: auth.user.id,
+        role: role ?? null,
+        permission,
+        path: req.nextUrl.pathname,
+      });
       return NextResponse.json(
         {
           error: 'permission_denied',
-          message: `Ação requer a permissão "${permission}".`,
+          message: 'Você não tem permissão para realizar esta ação.',
         },
         { status: 403 },
       );
