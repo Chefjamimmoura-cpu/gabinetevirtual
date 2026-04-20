@@ -103,6 +103,33 @@
   cursor: not-allowed;
 }
 
+.btnDanger {
+  background: var(--danger-500, #ef4444);
+  color: #ffffff;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btnDanger:hover {
+  opacity: 0.9;
+}
+
+.btnDanger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qrHint {
+  font-size: 0.75rem;
+  color: var(--gray-500, #6b7280);
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
 .qrContainer {
   display: flex;
   flex-direction: column;
