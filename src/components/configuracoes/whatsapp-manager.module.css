@@ -1,7 +1,7 @@
 .card {
   padding: 1.5rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--glass-bg, #ffffff);
+  border: 1px solid var(--glass-border, #e5e7eb);
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   margin-top: 1rem;
@@ -10,13 +10,13 @@
 .cardTitle {
   font-size: 1.125rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--gray-100, #111827);
   margin-bottom: 0.5rem;
 }
 
 .cardDesc {
   font-size: 0.875rem;
-  color: var(--color-text-muted);
+  color: var(--gray-500, #6b7280);
   margin-bottom: 1.5rem;
 }
 
@@ -64,8 +64,8 @@
 }
 
 .btnPrimary {
-  background: var(--color-primary);
-  color: white;
+  background: var(--primary-600, #16325B);
+  color: #ffffff;
   padding: 0.5rem 1rem;
   border-radius: 6px;
   font-weight: 500;
@@ -84,12 +84,12 @@
 }
 
 .btnSecondary {
-  background: white;
-  color: var(--color-text);
+  background: #ffffff;
+  color: var(--gray-100, #111827);
   padding: 0.5rem 1rem;
   border-radius: 6px;
   font-weight: 500;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border, #e5e7eb);
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -111,7 +111,7 @@
   margin-top: 1rem;
   padding: 2rem;
   background: #f9fafb;
-  border: 1px dashed var(--color-border);
+  border: 1px dashed var(--glass-border, #e5e7eb);
   border-radius: 8px;
 }
 
