@@ -360,59 +360,68 @@ function normalizeParecer(resultado: string): string {
 }
 
 // ── inferDiscussionStage ───────────────────────────────────
+//
+// REGRA DE OURO: na dúvida, retorna PRIMEIRA DISCUSSÃO.
+// PLLs podem ter histórico antigo de "Aprovada em 1ª" de legislaturas anteriores,
+// sessões anuladas ou ciclos reabertos. Tramitação histórica NÃO é fonte confiável
+// de turno atual — apenas a Ordem do Dia oficial é. Enquanto a pauta oficial não é
+// consultada, mantemos a heurística restrita a sinais recentes e fortes.
+//
+// Incidente (2026-04-21): PLLs a partir do nº 88 foram classificados como SEGUNDA
+// discussão porque tinham "APROVADA EM 1ª DISCUSSÃO" em tramitação antiga, quando
+// na verdade estavam novamente em primeira discussão na sessão atual.
 
-export function inferDiscussionStage(materia: SaplMateria, tipoSigla: string, docs?: SaplDocumento[]): string {
+const RECENT_WINDOW_DAYS = 180;
+
+function isRecent(dateStr: string | null | undefined, dataSessao?: string): boolean {
+  if (!dataSessao) return true; // sem data de referência, não filtra
+  if (!dateStr) return false;
+  const ref = new Date(dataSessao + 'T12:00:00').getTime();
+  const dt = new Date(dateStr + 'T12:00:00').getTime();
+  if (Number.isNaN(ref) || Number.isNaN(dt)) return true;
+  const diffDays = (ref - dt) / (1000 * 60 * 60 * 24);
+  return diffDays >= 0 && diffDays <= RECENT_WINDOW_DAYS;
+}
+
+export function inferDiscussionStage(
+  materia: SaplMateria,
+  tipoSigla: string,
+  docs?: SaplDocumento[],
+  dataSessao?: string,
+): string {
   const tipo = (tipoSigla || '').toUpperCase();
 
   if (tipo === 'PDL') return 'ÚNICA DISCUSSÃO E VOTAÇÃO (HONRARIAS)';
 
-  // Folha de Votação registrada → matéria JÁ foi votada em plenário → SEGUNDA DISCUSSÃO
-  if (docs && docs.some(d => {
-    const t = typeof d.tipo === 'number' ? d.tipo : (d.tipo as { id?: number })?.id;
-    return t === TIPO_FOLHA_VOTACAO;
-  })) {
-    return 'SEGUNDA DISCUSSÃO E VOTAÇÃO';
-  }
-
-  const tramits = materia._tramits || [];
-  let hasSegunda = false;
-  let hasAprovadaPrimeira = false;
-  let hasPrimeira = false;
-
-  for (const t of tramits) {
-    const _statusObj383 = typeof t.status === 'object' ? t.status : null;
-    const status = (_statusObj383?.descricao || _statusObj383?.sigla || '').toUpperCase();
-    const texto = (t.texto || '').toUpperCase();
-    const combined = `${status} ${texto}`;
-
-    if (combined.includes('SEGUNDA DISCUSS') || combined.includes('2ª DISCUSS') || combined.includes('2A DISCUSS')) {
-      hasSegunda = true; break;
-    }
-    if ((status.includes('APROVAD') || texto.includes('APROVAD')) &&
-        (combined.includes('PRIMEIRA') || combined.includes('1ª') || combined.includes('1A'))) {
-      hasAprovadaPrimeira = true;
-    }
-    if (combined.includes('PRIMEIRA DISCUSS') || combined.includes('1ª DISCUSS') || combined.includes('1A DISCUSS')) {
-      hasPrimeira = true;
-    }
-  }
-
-  if (hasSegunda || hasAprovadaPrimeira) return 'SEGUNDA DISCUSSÃO E VOTAÇÃO';
-
+  // Regime de tramitação declarado → fonte explícita, respeita
   const regime = (materia.regime_tramitacao?.descricao || '').toUpperCase();
   if (regime.includes('ÚNICA') || regime.includes('UNICA') || regime.includes('URGÊNCIA') || regime.includes('URGENCIA')) {
     return 'ÚNICA DISCUSSÃO E VOTAÇÃO';
   }
 
-  if (hasPrimeira) return 'PRIMEIRA DISCUSSÃO E VOTAÇÃO';
+  // Folha de Votação RECENTE → foi votada em plenário dentro da janela atual
+  if (docs && docs.some(d => {
+    const t = typeof d.tipo === 'number' ? d.tipo : (d.tipo as { id?: number })?.id;
+    return t === TIPO_FOLHA_VOTACAO && isRecent(d.data, dataSessao);
+  })) {
+    return 'SEGUNDA DISCUSSÃO E VOTAÇÃO';
+  }
 
-  const numPareceresAPI = (materia._pareceres || []).length;
-  const numPareceresDoc = (materia._docs || []).filter(d => {
-    const tipoId = typeof d.tipo === 'number' ? d.tipo : (d.tipo as { id?: number })?.id;
-    return tipoId === TIPO_PARECER_RELATOR || tipoId === TIPO_PARECER_COMISSAO;
-  }).length;
-  if (numPareceresAPI + numPareceresDoc >= 2) return 'SEGUNDA DISCUSSÃO E VOTAÇÃO';
+  // Tramitação RECENTE indicando explicitamente SEGUNDA DISCUSSÃO
+  const tramits = materia._tramits || [];
+  const hasSegundaRecente = tramits.some(t => {
+    if (!isRecent(t.data_tramitacao, dataSessao)) return false;
+    const _so = typeof t.status === 'object' ? t.status : null;
+    const status = (_so?.descricao || _so?.sigla || '').toUpperCase();
+    const texto = (t.texto || '').toUpperCase();
+    const combined = `${status} ${texto}`;
+    return combined.includes('SEGUNDA DISCUSS') || combined.includes('2ª DISCUSS') || combined.includes('2A DISCUSS');
+  });
+  if (hasSegundaRecente) return 'SEGUNDA DISCUSSÃO E VOTAÇÃO';
 
+  // Default seguro: PRIMEIRA DISCUSSÃO.
+  // Sinais fracos (tramitação antiga "APROVADA EM 1ª", múltiplos pareceres) NÃO
+  // disparam SEGUNDA aqui — geram falsos positivos para matérias reabertas.
   return 'PRIMEIRA DISCUSSÃO E VOTAÇÃO';
 }
 
@@ -463,7 +472,7 @@ export function buildMateriaContext(
   // Pré-calcula estágio de votação de cada matéria legislativa para montar sumário de blocos
   const blocosPorMateria = legislativas.map(m => {
     const sigla = m.tipo_sigla || (typeof m.tipo === 'object' ? (m.tipo as { sigla?: string })?.sigla : undefined) || '';
-    return { m, bloco: inferDiscussionStage(m, sigla, m._docs || []) };
+    return { m, bloco: inferDiscussionStage(m, sigla, m._docs || [], dataSessao) };
   });
 
   const blocoGroups: Map<string, number[]> = new Map();
@@ -504,7 +513,7 @@ export function buildMateriaContext(
   legislativas.forEach((m, i) => {
     const autorNome = resolveAuthorName(m);
     const tipoSigla = m.tipo_sigla || (typeof m.tipo === 'object' ? m.tipo?.sigla : undefined) || 'MAT';
-    const blocoVotacao = inferDiscussionStage(m, tipoSigla, m._docs || []);
+    const blocoVotacao = inferDiscussionStage(m, tipoSigla, m._docs || [], dataSessao);
     const allDocs = m._docs || [];
     const tramits = m._tramits || [];
 
