@@ -44,6 +44,7 @@ next-env.d.ts
 *.bak
 temp_*
 tmp_*
+_smoketest_out/
 
 # Supabase CLI cache
 supabase/.temp/

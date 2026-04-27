@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/supabase/auth-guard';
 import { generateDocxBuffer, generateRelatorDocxBuffer, generateParecerComissaoDocx, generateAtaDocx, ComissaoMembro } from '@/lib/parecer/generate-docx';
+import { resolveDisclaimer, type DisclaimerContext } from '@/lib/docs';
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
     relator_nome?: string;
     titulo?: string;
     membros?: ComissaoMembro[];
+    disclaimerContext?: DisclaimerContext;
   };
   try {
     body = await req.json();
@@ -29,11 +31,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Body JSON inválido' }, { status: 400 });
   }
 
-  const { parecer, total_materias = 0, data_sessao, tipo, commission_nome, commission_sigla, gabinete_nome, relator_nome, titulo, membros } = body;
+  const { parecer, total_materias = 0, data_sessao, tipo, commission_nome, commission_sigla, gabinete_nome, relator_nome, titulo, membros, disclaimerContext } = body;
 
   if (!parecer || typeof parecer !== 'string') {
     return NextResponse.json({ error: 'Campo "parecer" é obrigatório' }, { status: 400 });
   }
+
+  // Resolve disclaimer server-side: cliente nunca lida com texto legal direto
+  const disclaimer = disclaimerContext ? resolveDisclaimer(disclaimerContext) : undefined;
 
   // Relatoria: usa gerador específico com cabeçalho correto
   if (tipo === 'relatoria' && commission_nome && commission_sigla) {
@@ -68,6 +73,7 @@ export async function POST(req: NextRequest) {
         commissionSigla: commission_sigla,
         gabineteNome: gabinete_nome,
         membros,
+        disclaimer,
       });
       const safe = (titulo || `Parecer_Comissao_${commission_sigla}`).replace(/[^a-zA-Z0-9_-]/g, '_');
       return new NextResponse(buffer as unknown as BodyInit, {
@@ -93,6 +99,7 @@ export async function POST(req: NextRequest) {
         gabineteNome: gabinete_nome,
         membros,
         dataStr: data_sessao,
+        disclaimer,
       });
       const safe = (titulo || `ATA_${commission_sigla}`).replace(/[^a-zA-Z0-9_-]/g, '_');
       return new NextResponse(buffer as unknown as BodyInit, {

@@ -27,6 +27,7 @@ import {
   WidthType,
 } from 'docx';
 import { buildCmbvHeader, buildCmbvFooter } from '@/lib/docx/letterhead';
+import { buildSignaturePageHeader } from '@/lib/docs/signature-page';
 
 /** Mapa de palavras-chave de votação para cor de tarja (hex sem #) */
 const VOTO_KEYWORDS: { pattern: RegExp; color: string }[] = [
@@ -711,9 +712,9 @@ export interface ComissaoMembro {
  */
 export async function generateParecerComissaoDocx(
   text: string,
-  opts: { commissionNome: string; commissionSigla: string; gabineteNome?: string; membros?: ComissaoMembro[] }
+  opts: { commissionNome: string; commissionSigla: string; gabineteNome?: string; membros?: ComissaoMembro[]; disclaimer?: string }
 ): Promise<Buffer> {
-  const { commissionNome, commissionSigla, gabineteNome = 'Parlamentar', membros = [] } = opts;
+  const { commissionNome, commissionSigla, gabineteNome = 'Parlamentar', membros = [], disclaimer } = opts;
   const gabineteLabel = opts.commissionNome.toUpperCase();
   const SIZE = 22; // 11pt
 
@@ -754,7 +755,12 @@ export async function generateParecerComissaoDocx(
 
   // Assinaturas: linha + nome + cargo — formato oficial centralizado
   if (membros.length > 0) {
-    children.push(new Paragraph({ spacing: { before: 900 } }));
+    if (disclaimer && disclaimer.trim()) {
+      // Folha dedicada de assinaturas com disclaimer (proteção jurídica)
+      children.push(...buildSignaturePageHeader(disclaimer));
+    } else {
+      children.push(new Paragraph({ spacing: { before: 900 } }));
+    }
 
     // Ordena: presidente primeiro, depois membros, depois vice-presidente
     const sortOrder: Record<string, number> = { presidente: 0, membro: 1, suplente: 2, 'vice-presidente': 3 };
@@ -802,9 +808,9 @@ export async function generateParecerComissaoDocx(
  */
 export async function generateAtaDocx(
   text: string,
-  opts: { commissionNome: string; commissionSigla: string; gabineteNome?: string; membros?: ComissaoMembro[]; dataStr?: string }
+  opts: { commissionNome: string; commissionSigla: string; gabineteNome?: string; membros?: ComissaoMembro[]; dataStr?: string; disclaimer?: string }
 ): Promise<Buffer> {
-  const { commissionNome, commissionSigla, gabineteNome = 'Parlamentar', membros = [], dataStr } = opts;
+  const { commissionNome, commissionSigla, gabineteNome = 'Parlamentar', membros = [], dataStr, disclaimer } = opts;
   const gabineteLabel = opts.commissionNome.toUpperCase();
   const SIZE = 24; // 12pt — ATA em maiúsculas segue o modelo original
 
@@ -837,7 +843,12 @@ export async function generateAtaDocx(
 
   // Data e assinaturas
   if (dataStr || membros.length > 0) {
-    children.push(new Paragraph({ spacing: { before: 600 } }));
+    if (disclaimer && disclaimer.trim()) {
+      // Folha dedicada de assinaturas com disclaimer (proteção jurídica)
+      children.push(...buildSignaturePageHeader(disclaimer));
+    } else {
+      children.push(new Paragraph({ spacing: { before: 600 } }));
+    }
     if (dataStr) {
       children.push(new Paragraph({
         children: [new TextRun({ text: `CÂMARA MUNICIPAL DE BOA VISTA, ${dataStr.toUpperCase()}.`, size: SIZE, font: 'Times New Roman' })],

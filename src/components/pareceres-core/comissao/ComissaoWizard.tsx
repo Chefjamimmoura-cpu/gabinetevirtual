@@ -22,12 +22,14 @@ export function ComissaoWizard({
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [ataResult, setAtaResult] = useState<string | null>(null);
+  const [ataData, setAtaData] = useState<string | null>(null);
   const [parecerResults, setParecerResults] = useState<Map<number, ParecerResult>>(new Map());
   const [isGerando, setIsGerando] = useState(false);
   const [membros, setMembros] = useState<ComissaoMembro[]>([]);
   const [membrosLoading, setMembrosLoading] = useState(false);
   const [reunioes, setReunioes] = useState<Reuniao[]>([]);
   const [lastComissaoResult, setLastComissaoResult] = useState<string | null>(null);
+  const [disclaimerEnabled, setDisclaimerEnabled] = useState(true);
 
   const comissao = comissoesDisponiveis.find(c => c.sigla === comissaoSigla);
   const selectedMaterias = comissaoFila.filter(m => selectedIds.has(m.id));
@@ -57,6 +59,7 @@ export function ComissaoWizard({
     setCurrentStep(1);
     setSelectedIds(new Set());
     setAtaResult(null);
+    setAtaData(null);
     setParecerResults(new Map());
   }, [comissaoSigla]);
 
@@ -86,6 +89,7 @@ export function ComissaoWizard({
       if (res.ok) {
         const data = await res.json();
         setAtaResult(data.ata);
+        setAtaData(params.data);
         if (data.membros) setMembros(data.membros);
       }
     } catch { /* silent */ } finally { setIsGerando(false); }
@@ -136,6 +140,24 @@ export function ComissaoWizard({
       ? `ATA_${comissao.sigla}`
       : materiaRef ? `Parecer_${comissao.sigla}_${materiaRef}` : `Parecer_${comissao.sigla}`;
 
+    // Disclaimer Registry: monta contexto que o servidor resolve via resolveDisclaimer()
+    // Quando habilitado, garante folha dedicada de assinaturas com proteção jurídica no topo.
+    const today = new Date().toISOString().slice(0, 10);
+    const disclaimerContext = !disclaimerEnabled
+      ? undefined
+      : tipo === 'ata'
+      ? {
+          kind: 'ata_comissao' as const,
+          comissao: { nome: comissao.nome, sigla: comissao.sigla },
+          data: ataData ?? today,
+        }
+      : {
+          kind: 'parecer_comissao' as const,
+          comissao: { nome: comissao.nome, sigla: comissao.sigla },
+          materia: materia ? { tipo_sigla: materia.tipo_sigla, numero: materia.numero, ano: materia.ano } : undefined,
+          data: today,
+        };
+
     try {
       const body: Record<string, unknown> = {
         parecer: content,
@@ -145,6 +167,7 @@ export function ComissaoWizard({
         membros,
         titulo: defaultName,
       };
+      if (disclaimerContext) body.disclaimerContext = disclaimerContext;
       if (formato === 'odt') body.formato = 'odt';
       const res = await fetch('/api/pareceres/export-docx', {
         method: 'POST',
@@ -162,7 +185,7 @@ export function ComissaoWizard({
         URL.revokeObjectURL(url);
       }
     } catch { /* silent */ }
-  }, [ataResult, lastComissaoResult, parecerResults, comissaoFila, comissao, membros]);
+  }, [ataResult, ataData, lastComissaoResult, parecerResults, comissaoFila, comissao, membros, disclaimerEnabled]);
 
   const handleReabrirReuniao = useCallback((reuniao: Reuniao) => {
     setSelectedIds(new Set(reuniao.materia_ids));
@@ -197,6 +220,46 @@ export function ComissaoWizard({
             )}
           </button>
         ))}
+      </div>
+
+      {/* Toggle: folha dedicada de assinaturas com disclaimer jurídico */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+        background: disclaimerEnabled ? 'rgba(22, 50, 91, 0.06)' : 'rgba(107, 114, 128, 0.05)',
+        border: `1px solid ${disclaimerEnabled ? 'rgba(22, 50, 91, 0.2)' : 'rgba(107, 114, 128, 0.18)'}`,
+        borderRadius: 8, marginBottom: 12, fontSize: '0.85rem',
+      }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+          <span
+            role="switch"
+            aria-checked={disclaimerEnabled}
+            style={{
+              position: 'relative', display: 'inline-block', width: 36, height: 20,
+              background: disclaimerEnabled ? '#16325B' : '#cbd5e1',
+              borderRadius: 999, transition: 'background 0.15s ease',
+            }}
+          >
+            <span style={{
+              position: 'absolute', top: 2, left: disclaimerEnabled ? 18 : 2,
+              width: 16, height: 16, background: '#fff', borderRadius: '50%',
+              transition: 'left 0.15s ease', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+            }} />
+          </span>
+          <input
+            type="checkbox"
+            checked={disclaimerEnabled}
+            onChange={(e) => setDisclaimerEnabled(e.target.checked)}
+            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+          />
+          <strong style={{ color: '#16325B', fontWeight: 600 }}>
+            Folha de assinaturas com disclaimer jurídico
+          </strong>
+        </label>
+        <span style={{ color: '#6b7280', fontSize: '0.78rem', flex: 1 }}>
+          {disclaimerEnabled
+            ? 'Assinaturas em página dedicada com texto de proteção (recomendado).'
+            : 'Assinaturas seguem o texto, sem página dedicada nem disclaimer.'}
+        </span>
       </div>
 
       {/* Histórico */}
