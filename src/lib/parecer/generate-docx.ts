@@ -762,8 +762,8 @@ export async function generateParecerComissaoDocx(
       children.push(new Paragraph({ spacing: { before: 900 } }));
     }
 
-    // Ordena: presidente primeiro, depois membros, depois vice-presidente
-    const sortOrder: Record<string, number> = { presidente: 0, membro: 1, suplente: 2, 'vice-presidente': 3 };
+    // Ordem oficial CMBV: Presidente → Vice-presidente → Membros → Suplentes
+    const sortOrder: Record<string, number> = { presidente: 0, 'vice-presidente': 1, membro: 2, suplente: 3 };
     const sorted = [...membros].sort((a, b) => (sortOrder[a.cargo] ?? 9) - (sortOrder[b.cargo] ?? 9));
 
     for (const m of sorted) {
@@ -857,69 +857,31 @@ export async function generateAtaDocx(
       }));
     }
 
-    const presidente = membros.find(m => m.cargo === 'presidente');
-    const vice = membros.find(m => m.cargo === 'vice-presidente');
-    const outrosMembros = membros.filter(m => m.cargo === 'membro' || m.cargo === 'suplente');
+    // Ordem oficial CMBV: Presidente → Vice-presidente → Membros → Suplentes
+    // Layout vertical (um signatário embaixo do outro), centralizado
+    const sortOrder: Record<string, number> = { presidente: 0, 'vice-presidente': 1, membro: 2, suplente: 3 };
+    const sorted = [...membros].sort((a, b) => (sortOrder[a.cargo] ?? 9) - (sortOrder[b.cargo] ?? 9));
 
-    // Linha 1: Presidente (esq) | Membro (dir) — tabela sem bordas, centralizada
-    if (presidente || outrosMembros.length > 0) {
-      const makeSigCell = (nome: string, cargo: string) => new TableCell({
-        width: { size: 50, type: WidthType.PERCENTAGE },
-        borders: { top: { style: BorderStyle.NONE, size: 0 }, bottom: { style: BorderStyle.NONE, size: 0 }, left: { style: BorderStyle.NONE, size: 0 }, right: { style: BorderStyle.NONE, size: 0 } },
-        children: [
-          new Paragraph({
-            children: [new TextRun({ text: '________________________________', size: SIZE, font: 'Courier New' })],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 0 },
-          }),
-          new Paragraph({
-            children: [new TextRun({ text: `${cargo === 'PRESIDENTE' ? 'VEREADORA' : 'VEREADOR(A)'} ${nome}`, bold: true, size: SIZE, font: 'Times New Roman' })],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 0 },
-          }),
-          new Paragraph({
-            children: [new TextRun({ text: cargo, size: SIZE, font: 'Times New Roman' })],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 0 },
-          }),
-        ],
-      });
+    for (const m of sorted) {
+      const cargoLabel = m.cargo === 'presidente' ? 'PRESIDENTE'
+        : m.cargo === 'vice-presidente' ? 'VICE-PRESIDENTE'
+        : m.cargo === 'suplente' ? 'SUPLENTE'
+        : 'MEMBRO';
+      const tratamento = m.cargo === 'presidente' ? 'VEREADORA' : 'VEREADOR(A)';
 
-      children.push(new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        rows: [
-          new TableRow({
-            children: [
-              makeSigCell(
-                presidente ? presidente.nome.toUpperCase() : '',
-                presidente ? 'PRESIDENTE' : '',
-              ),
-              makeSigCell(
-                outrosMembros[0] ? outrosMembros[0].nome.toUpperCase() : '',
-                outrosMembros[0] ? 'MEMBRO' : '',
-              ),
-            ],
-          }),
-        ],
-      }));
-      children.push(new Paragraph({ spacing: { after: 600 } }));
-    }
-
-    // Linha 2: Vice-Presidente — centralizado abaixo
-    if (vice) {
       children.push(
         new Paragraph({
           children: [new TextRun({ text: '________________________________', size: SIZE, font: 'Courier New' })],
           alignment: AlignmentType.CENTER,
-          spacing: { after: 0 },
+          spacing: { before: 400, after: 0 },
         }),
         new Paragraph({
-          children: [new TextRun({ text: `VEREADOR(A) ${vice.nome.toUpperCase()}`, bold: true, size: SIZE, font: 'Times New Roman' })],
+          children: [new TextRun({ text: `${tratamento} ${m.nome.toUpperCase()}`, bold: true, size: SIZE, font: 'Times New Roman' })],
           alignment: AlignmentType.CENTER,
           spacing: { after: 0 },
         }),
         new Paragraph({
-          children: [new TextRun({ text: 'VICE-PRESIDENTE', size: SIZE, font: 'Times New Roman' })],
+          children: [new TextRun({ text: cargoLabel, size: SIZE, font: 'Times New Roman' })],
           alignment: AlignmentType.CENTER,
           spacing: { after: 0 },
         }),

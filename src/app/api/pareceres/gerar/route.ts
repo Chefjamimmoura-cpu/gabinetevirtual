@@ -20,7 +20,8 @@ import { requireAuth } from '@/lib/supabase/auth-guard';
 
 const parecerLimiter = createRateLimiter({ windowMs: 60_000, max: 5 });
 import { buildMateriaContext, fetchCommissionDocContents } from '@/lib/parecer/build-context';
-import { fetchMateria, enrichMateria, lightEnrichMateria, type SaplMateria } from '@/lib/sapl/client';
+import { fetchMateria, enrichMateria, lightEnrichMateria, SAPL_BASE, type SaplMateria } from '@/lib/sapl/client';
+import { fetchAndParsePauta } from '@/lib/sapl/pauta-parser';
 import fs from 'fs';
 import path from 'path';
 
@@ -181,7 +182,14 @@ export async function POST(req: NextRequest) {
   // antes de construir o contexto — garante votos corretos sem alucinação
   const docVotes = await fetchCommissionDocContents(materias);
 
-  const userContext = buildMateriaContext(materias, data_sessao, sessao_str, folha_votacao_url, docVotes);
+  // Estrutura da pauta (bloco + isParecerContrario): re-extrai do PDF da pauta
+  // para evitar que itens "PARECER CONTRÁRIO DA COMISSÃO AO PLL X" sejam
+  // tratados como votação direta no PLL. Fallback silencioso se PDF indisponível.
+  const pautaMeta = folha_votacao_url
+    ? await fetchAndParsePauta(folha_votacao_url, SAPL_BASE, materias)
+    : new Map();
+
+  const userContext = buildMateriaContext(materias, data_sessao, sessao_str, folha_votacao_url, docVotes, pautaMeta);
 
   try {
     const gemini = genAI.getGenerativeModel({

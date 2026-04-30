@@ -6,6 +6,7 @@
 import { SAPL_BASE, VOTING_KEYWORDS, PROC_KEYS, SIGLAS_COMISSOES } from './prompts';
 import type { SaplMateria, SaplDocumento, SaplTramitacao } from '../sapl/client';
 import { extractTextFlateDecode, extractTextFromPdfBuffer, detectVoteInText } from '../sapl/ocr';
+import { blocoLabel, type PautaItemMeta } from '../sapl/pauta-parser';
 
 /** Mapa de docId → texto extraído do PDF (pré-carregado antes da geração do parecer) */
 export type DocContentMap = Map<number, string>;
@@ -449,6 +450,7 @@ export function buildMateriaContext(
   sessaoStr?: string,
   folhaVotacaoUrl?: string | null,
   docVotes?: DocContentMap,
+  pautaMeta?: Map<number, PautaItemMeta>,
 ): string {
   const dataFormatada = dataSessao
     ? new Date(dataSessao + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -469,11 +471,36 @@ export function buildMateriaContext(
   context += `  → Itens Legislativos (analisar): ${legislativas.length}\n`;
   context += `  → Expediente (listar apenas, sem análise): ${expediente.length}\n\n`;
 
-  // Pré-calcula estágio de votação de cada matéria legislativa para montar sumário de blocos
-  const blocosPorMateria = legislativas.map(m => {
+  // Resolve bloco de cada matéria legislativa.
+  // FONTE PRIMÁRIA: pautaMeta (extraído do PDF da pauta) — preserva ordem dos blocos
+  // e sinaliza itens que são "PARECER CONTRÁRIO DA COMISSÃO ao PLL X".
+  // FALLBACK: inferDiscussionStage (heurística por regime/tramitações).
+  const resolveBlocoMateria = (m: SaplMateria): { bloco: string; isParecerContrario: boolean; numeroOrdem?: number } => {
+    const meta = pautaMeta?.get(m.id);
+    if (meta) {
+      return {
+        bloco: blocoLabel(meta.bloco, meta.isParecerContrario),
+        isParecerContrario: meta.isParecerContrario,
+        numeroOrdem: meta.numeroOrdem,
+      };
+    }
     const sigla = m.tipo_sigla || (typeof m.tipo === 'object' ? (m.tipo as { sigla?: string })?.sigla : undefined) || '';
-    return { m, bloco: inferDiscussionStage(m, sigla, m._docs || [], dataSessao) };
-  });
+    return {
+      bloco: inferDiscussionStage(m, sigla, m._docs || [], dataSessao),
+      isParecerContrario: false,
+    };
+  };
+
+  // Reordena legislativas pela ordem da pauta (numeroOrdem) quando disponível
+  if (pautaMeta && pautaMeta.size > 0) {
+    legislativas.sort((a, b) => {
+      const oa = pautaMeta.get(a.id)?.numeroOrdem ?? 9999;
+      const ob = pautaMeta.get(b.id)?.numeroOrdem ?? 9999;
+      return oa - ob;
+    });
+  }
+
+  const blocosPorMateria = legislativas.map(m => ({ m, ...resolveBlocoMateria(m) }));
 
   const blocoGroups: Map<string, number[]> = new Map();
   blocosPorMateria.forEach(({ bloco }, i) => {
@@ -513,19 +540,32 @@ export function buildMateriaContext(
   legislativas.forEach((m, i) => {
     const autorNome = resolveAuthorName(m);
     const tipoSigla = m.tipo_sigla || (typeof m.tipo === 'object' ? m.tipo?.sigla : undefined) || 'MAT';
-    const blocoVotacao = inferDiscussionStage(m, tipoSigla, m._docs || [], dataSessao);
+    const { bloco: blocoVotacao, isParecerContrario, numeroOrdem } = resolveBlocoMateria(m);
     const allDocs = m._docs || [];
     const tramits = m._tramits || [];
 
     context += `═══════════════════════════════════════════\n`;
     context += `[MATÉRIA DE CONTEXTO ${i + 1} DE ${materias.length}] — ${tipoSigla} Nº ${m.numero}/${m.ano}\n`;
     context += `═══════════════════════════════════════════\n`;
+    if (numeroOrdem !== undefined) {
+      context += `ITEM DA PAUTA: ${numeroOrdem}\n`;
+    }
     context += `Tipo: ${tipoSigla}\n`;
     context += `Número do Projeto: ${m.numero}/${m.ano}\n`;
     context += `Link no SAPL: ${SAPL_BASE}/materia/${m.id}\n`;
     context += `Ementa Oficial: ${m.ementa || 'Não informada'}\n`;
     context += `Autor(es): ${autorNome}\n`;
     context += `BLOCO DE VOTAÇÃO: ${blocoVotacao}\n`;
+    if (isParecerContrario) {
+      context += `\n🛑 NATUREZA DO ITEM: PARECER CONTRÁRIO DA COMISSÃO DE LEGISLAÇÃO E JUSTIÇA (CLJRF) AO ${tipoSigla} ${m.numero}/${m.ano}\n`;
+      context += `   ⚠️ ATENÇÃO: o que está em votação NÃO é o mérito do projeto, e sim o PARECER CONTRÁRIO emitido pela CLJRF.\n`;
+      context += `   • Aprovar o parecer contrário = arquivar/rejeitar a proposta (resultado final: PROJETO REJEITADO).\n`;
+      context += `   • Rejeitar o parecer contrário = manter a proposta tramitando (resultado final: PROJETO SEGUE EM TRAMITAÇÃO).\n`;
+      context += `   • Padrão da Vereadora Carol Dantas: ACOMPANHA o parecer da comissão competente (análise de constitucionalidade já feita).\n`;
+      context += `   • RECOMENDAÇÃO PADRÃO: VOTO FAVORÁVEL ao parecer contrário (= acompanhar a CLJRF), salvo orientação política em contrário.\n`;
+      context += `   • Na redação do parecer: NÃO escreva "voto favorável ao PLL" — escreva "voto favorável ao parecer contrário" ou\n`;
+      context += `     "acompanhar o parecer da CLJRF pela rejeição/inconstitucionalidade".\n`;
+    }
 
     // Tramitações recentes + votações
     context += `\nTRAMITAÇÕES RECENTES:\n`;

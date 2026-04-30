@@ -23,6 +23,7 @@ interface CommissionWithRole {
   criterios: string;
   keywords: string[];
   sapl_unit_id: number | null;
+  sapl_comissao_id: number | null;
   artigoRegimento?: string;
   link_lei?: string;
   meu_cargo: string; // presidente, vice-presidente, membro
@@ -60,13 +61,14 @@ function findSiglaByName(name: string, configMap: Map<string, Record<string, unk
 }
 
 /** Fallback estático para usar quando o config map não tem uma sigla */
-function getStaticConfig(sigla: string): { area: string; criterios: string; keywords: string[]; sapl_unit_id: number | null } {
+function getStaticConfig(sigla: string): { area: string; criterios: string; keywords: string[]; sapl_unit_id: number | null; sapl_comissao_id: number | null } {
   const found = COMISSOES_CMBV.find(c => c.sigla.toUpperCase() === sigla.toUpperCase());
   return {
     area: found?.areaExpertise || found?.area || '',
     criterios: found?.criteriosAnalise || found?.criterios || '',
     keywords: found?.saplKeywords || found?.keywords || [],
     sapl_unit_id: found?.sapl_unit_id ?? null,
+    sapl_comissao_id: found?.sapl_comissao_id ?? null,
   };
 }
 
@@ -189,7 +191,7 @@ async function buildResponse(
       if (staticMatch) sigla = staticMatch.sigla;
     }
 
-    const staticCfg = sigla ? getStaticConfig(sigla) : { area: '', criterios: '', keywords: [], sapl_unit_id: saplId };
+    const staticCfg = sigla ? getStaticConfig(sigla) : { area: '', criterios: '', keywords: [], sapl_unit_id: saplId, sapl_comissao_id: saplId };
 
     return {
       sigla: sigla || `COM_${saplId || 'UNK'}`,
@@ -197,9 +199,12 @@ async function buildResponse(
       area: (configData?.area as string) || staticCfg.area,
       criterios: (configData?.criterios as string) || staticCfg.criterios,
       keywords: (configData?.keywords as string[]) || staticCfg.keywords,
-      // Prioriza sapl_unit_id da config estática (unidade de tramitação real, ex: CASP=93)
+      // Prioriza sapl_unit_id da config estática (unidade de tramitação real, ex: CASP=83)
       // O saplId da tabela comissoes é o id da comissão (ex: 12), não a unidade de tramitação
       sapl_unit_id: staticCfg.sapl_unit_id ?? saplId,
+      // sapl_comissao_id é necessário para buscar membros via /api/comissoes/composicao/?comissao={id}
+      // Para CASP: comissao_id=12 (não confundir com unit_id=83). c.sapl_id da tabela comissoes é o comissao_id.
+      sapl_comissao_id: (configData?.sapl_comissao_id as number) ?? staticCfg.sapl_comissao_id ?? saplId,
       artigoRegimento: (configData?.artigoRegimento as string) || undefined,
       link_lei: (configData?.link_lei as string) || undefined,
       meu_cargo: cargo,
@@ -244,6 +249,7 @@ async function returnAllCommissions(db: ReturnType<typeof supabase>) {
     criterios: c.criteriosAnalise || c.criterios || '',
     keywords: c.saplKeywords || c.keywords || [],
     sapl_unit_id: c.sapl_unit_id ?? null,
+    sapl_comissao_id: c.sapl_comissao_id ?? null,
     artigoRegimento: c.artigoRegimento,
     link_lei: c.link_lei,
     meu_cargo: 'acesso_geral',

@@ -23,7 +23,7 @@ export interface ComissaoConfig {
   artigoRegimento?: string;
   link_lei?: string;
   sapl_unit_id?: number | null;
-  sapl_comissao_id?: number;
+  sapl_comissao_id?: number | null;
   meu_cargo?: string;
   comissao_uuid?: string | null;
 }

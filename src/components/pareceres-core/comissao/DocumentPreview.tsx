@@ -24,7 +24,8 @@ export function DocumentPreview({ content, tipo, onExportOdt, onExportDocx, comm
     membro: 'Membro',
     suplente: 'Suplente',
   };
-  const cargoOrdem: Record<string, number> = { presidente: 0, membro: 1, suplente: 2, 'vice-presidente': 3 };
+  // Ordem oficial CMBV: Presidente → Vice-presidente → Membros → Suplentes
+  const cargoOrdem: Record<string, number> = { presidente: 0, 'vice-presidente': 1, membro: 2, suplente: 3 };
   const membrosOrdenados = [...membros].sort((a, b) => (cargoOrdem[a.cargo] ?? 9) - (cargoOrdem[b.cargo] ?? 9));
 
   return (
@@ -78,13 +79,13 @@ export function DocumentPreview({ content, tipo, onExportOdt, onExportDocx, comm
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           )}
 
-          {/* Assinaturas dos membros */}
+          {/* Assinaturas dos membros — empilhadas verticalmente (um embaixo do outro) */}
           {membrosOrdenados.length > 0 && (
             <div style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, justifyContent: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center' }}>
                 {membrosOrdenados.map((m, i) => (
-                  <div key={i} style={{ textAlign: 'center', minWidth: 180 }}>
-                    <div style={{ borderBottom: '1px solid #9ca3af', width: 180, margin: '0 auto 4px' }} />
+                  <div key={i} style={{ textAlign: 'center', minWidth: 240 }}>
+                    <div style={{ borderBottom: '1px solid #9ca3af', width: 240, margin: '0 auto 4px' }} />
                     <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151' }}>
                       {m.cargo === 'presidente' ? 'Vereadora' : 'Vereador(a)'} {m.nome}
                     </div>

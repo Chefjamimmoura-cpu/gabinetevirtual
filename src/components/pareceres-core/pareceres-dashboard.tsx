@@ -20,6 +20,7 @@ interface CommissionDynamic {
   criterios: string;
   keywords: string[];
   sapl_unit_id: number | null;
+  sapl_comissao_id?: number | null;
   artigoRegimento?: string;
   link_lei?: string;
   meu_cargo?: string; // presidente, vice-presidente, membro, acesso_geral

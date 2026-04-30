@@ -88,6 +88,16 @@ A Vereadora integra a **Base do Executivo** (apoio ao Prefeito).
    - Primeira Discussão tem o MESMO tratamento de Segunda Discussão: cabeçalho \`## EM PRIMEIRA DISCUSSÃO E VOTAÇÃO\` é OBRIGATÓRIO quando há matérias nesse turno.
    - Nunca pule cabeçalho de bloco. Omita o bloco apenas se ele não tiver nenhuma matéria.
 
+11. **PARECER CONTRÁRIO DA COMISSÃO — TRATAMENTO ESPECIAL (CRÍTICO)**:
+   - Quando o contexto contém \`🛑 NATUREZA DO ITEM: PARECER CONTRÁRIO DA COMISSÃO\`, o que está em votação NÃO é o mérito do projeto — é o **parecer contrário** emitido pela comissão (geralmente CLJRF).
+   - Esses itens permanecem no bloco \`## EM ÚNICA DISCUSSÃO E VOTAÇÃO\` (NUNCA mover para Primeira ou Segunda Discussão).
+   - **Cabeçalho do item** deve deixar EXPLÍCITO que o objeto é o parecer contrário. Use o formato:
+     \`#### Item N — Parecer Contrário da CLJRF ao [TIPO NUM/ANO](URL_SAPL)\`
+   - **Recomendação padrão**: \`VOTO FAVORÁVEL\` ao parecer contrário (acompanhar a comissão competente — a CLJRF é quem julga constitucionalidade).
+   - **Na fundamentação**: NUNCA escreva "voto favorável ao PLL" — sempre "voto favorável ao parecer contrário" ou "acompanhar a CLJRF pela rejeição/inconstitucionalidade da matéria".
+   - **Conteúdo da análise**: foque na argumentação da comissão (vícios apontados, dispositivos invocados). O mérito do projeto entra apenas como contraposição.
+   - **Tabela resumo**: na coluna "Matéria" escreva \`Parecer Contrário (CLJRF) ao TIPO NUM/ANO\`. Na coluna "Recomendação" escreva \`VOTO FAVORÁVEL ao parecer\`.
+
 ---
 
 ## ESTRUTURA OBRIGATÓRIA DO DOCUMENTO
@@ -108,11 +118,11 @@ Siga EXATAMENTE a sequência dos itens conforme o contexto — NÃO reordene, N�
 
 ## EM ÚNICA DISCUSSÃO E VOTAÇÃO
 
-(Este bloco aparece quando há PDLs — honrarias, títulos e condecorações)
+(Este bloco aparece quando há PDLs — honrarias — e/ou Pareceres Contrários da Comissão. Mantenha a ordem exata da pauta.)
 
 **Recomendação Geral dos PDLs:** VOTO FAVORÁVEL EM BLOCO.
 
-(A recomendação geral vem IMEDIATAMENTE ABAIXO do cabeçalho do bloco, ANTES de enumerar os PDLs individualmente. Nunca deixe a recomendação ao fim.)
+(A recomendação acima cobre apenas os PDLs/honrarias. Vem IMEDIATAMENTE ABAIXO do cabeçalho do bloco, ANTES de enumerar os PDLs. Itens de PARECER CONTRÁRIO recebem recomendação INDIVIDUAL — não entram nessa recomendação geral.)
 
 Formato simplificado de cada PDL (sem pareceres de comissão, sem folha de votação) — USAR NUMERAÇÃO "Item N —" igual aos PLLs, continuando a contagem global da pauta:
 
@@ -123,6 +133,17 @@ Formato simplificado de cada PDL (sem pareceres de comissão, sem folha de vota�
 ---
 
 (repita para cada PDL, separados por ---)
+
+(Quando o contexto sinalizar 🛑 NATUREZA DO ITEM: PARECER CONTRÁRIO DA COMISSÃO, o item PERMANECE neste bloco — formato completo abaixo:)
+
+#### Item N — Parecer Contrário da CLJRF ao [TIPO NUM/ANO](https://sapl.boavista.rr.leg.br/materia/ID)
+
+- **Autor do projeto:** [Nome completo do autor]
+- **Ementa do projeto:** [Texto exato da ementa]
+- **Pareceres Registrados:**
+    - Procuradoria: [VOTO do contexto]
+    - CLJRF (Comissão de Legislação, Justiça e Redação Final): CONTRÁRIO — [síntese dos vícios apontados pela comissão, com base nos pareceres do contexto]
+- **Recomendação:** VOTO FAVORÁVEL ao parecer contrário. [Fundamentação em 2-3 frases destacando: (a) que a CLJRF é a comissão competente para análise de constitucionalidade; (b) os vícios apontados; (c) consequência prática — projeto será arquivado/rejeitado.]
 
 ---
 

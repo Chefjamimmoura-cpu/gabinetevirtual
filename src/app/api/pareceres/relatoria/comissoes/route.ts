@@ -19,6 +19,7 @@ export interface CommissionDynamic {
   criterios: string;
   keywords: string[];
   sapl_unit_id: number | null;
+  sapl_comissao_id?: number | null;
   artigoRegimento?: string;
   link_lei?: string;
 }
@@ -41,6 +42,7 @@ function staticFallback(): CommissionDynamic[] {
     criterios: c.criteriosAnalise ?? c.criterios ?? '',
     keywords: c.saplKeywords ?? c.keywords ?? [],
     sapl_unit_id: c.sapl_unit_id ?? null,
+    sapl_comissao_id: c.sapl_comissao_id ?? null,
     artigoRegimento: c.artigoRegimento,
     link_lei: c.link_lei,
   }));
